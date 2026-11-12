@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Seminar Interpreter — JA → EN</title>
 <style>
   :root { --fs: 56px; --bg:#0b0d10; --fg:#f5f5f0; --dim:#8a8f98; --accent:#ffd34d; }
   * { box-sizing: border-box; }
-  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+  html,body { margin:0; height:100%; height:100dvh; overflow:hidden; background:var(--bg); color:var(--fg);
     font-family: "Segoe UI", "Helvetica Neue", Arial, "Yu Gothic UI", "Meiryo", "Hiragino Sans", sans-serif; }
   #controls { padding:10px 14px; background:#1a1d22; font-size:14px; }
   .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
@@ -86,6 +87,8 @@
     <label>History lines <input id="hist" type="number" min="0" max="8" value="3" style="width:46px"></label>
     <label><input id="showja" type="checkbox"> Show source language</label>
     <label>Layout <select id="layout"><option value="single">Single (translation only)</option><option value="split">Side by side (From | To)</option></select></label>
+  </div>
+  <div class="row">
     <button id="popL" title="Open the left column (From language) in its own window">⧉ Left window</button>
     <button id="popR" title="Open the right column (To language) in its own window">⧉ Right window</button>
     <button id="full">⛶ Full screen</button>
@@ -333,7 +336,7 @@ function openPop(side){
   if (!w) { notify("popup"); return; }
   const lang = side === "L" ? SRC : TGT, title = LANGS[lang] ? LANGS[lang].title : lang;
   w.document.open();
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title} — Seminar Interpreter</title><style>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} — Seminar Interpreter</title><style>
     :root{--fs:56px} html,body{margin:0;height:100%;background:#0b0d10;color:#f5f5f0;
     font-family:"Segoe UI","Helvetica Neue",Arial,"Yu Gothic UI","Meiryo","Hiragino Sans",sans-serif}
     body{display:flex;flex-direction:column;justify-content:flex-end;padding:3vh 4vw 6vh;box-sizing:border-box}
@@ -343,7 +346,7 @@ function openPop(side){
     #cur .prov{color:#b9bdc4;font-weight:400}
     #fs{position:absolute;top:8px;right:12px;padding:6px 12px;border:0;border-radius:6px;background:#2e333b;color:#fff;cursor:pointer}
     </style></head><body><h3>${title}</h3>
-    <button id="fs" onclick="document.documentElement.requestFullscreen()">⛶ Full screen</button>
+    <button id="fs" onclick="var e=document.documentElement;(e.requestFullscreen||e.webkitRequestFullscreen).call(e)">⛶ Full screen</button>
     <div id="hist"></div><div id="cur"></div>
     <script>document.addEventListener("fullscreenchange",()=>{document.getElementById("fs").style.display=document.fullscreenElement?"none":""});<\/script>
     </body></html>`);
@@ -639,8 +642,16 @@ $("src").value = load("si_srcsel") || "mic";
 $("stop").onclick = stop;
 
 // ---------- full screen / export ----------
-$("full").onclick = () => { document.body.classList.add("full"); document.documentElement.requestFullscreen?.(); applyUI(); };
-document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement) { document.body.classList.remove("full"); applyUI(); } });
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+$("full").onclick = () => {
+  document.body.classList.add("full");
+  const el = document.documentElement;
+  try { (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch(e) {}
+  setTimeout(applyUI, 300);
+};
+function onFs(){ if (!fsEl()) document.body.classList.remove("full"); setTimeout(applyUI, 300); }
+document.addEventListener("fullscreenchange", onFs); document.addEventListener("webkitfullscreenchange", onFs);
+window.addEventListener("orientationchange", () => setTimeout(applyUI, 300));
 $("export").onclick = () => {
   const txt = (TWO ? `TRANSLATION (${UP(SRC)} ⇄ ${UP(TGT)})` : `${UP(TGT)} (translation)`) + "\n=====\n" + log.join("\n") + "\n\n" + (TWO ? "SOURCE (as spoken)" : `${UP(SRC)} (source)`) + "\n=====\n" + jaLog;
   const a = document.createElement("a");
