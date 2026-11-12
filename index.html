@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Seminar Interpreter — JA → EN</title>
+<style>
+  :root { --fs: 56px; --bg:#0b0d10; --fg:#f5f5f0; --dim:#8a8f98; --accent:#ffd34d; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family: "Segoe UI", "Helvetica Neue", Arial, "Yu Gothic UI", "Meiryo", "Hiragino Sans", sans-serif; }
+  #controls { padding:10px 14px; background:#1a1d22; font-size:14px; }
+  .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .row + .row { margin-top:8px; }
+  #controls label { display:flex; align-items:center; gap:6px; color:#cfd3da; }
+  #controls input[type=password]{ width:200px; }
+  select, input, textarea { background:#0f1114; color:#eee; border:1px solid #3a3f47; border-radius:4px; padding:4px 6px; }
+  button { padding:7px 14px; font-size:14px; border:0; border-radius:6px; cursor:pointer; background:#2e333b; color:#fff; }
+  button.primary { background:#2f7d32; } button.stop { background:#b3261e; }
+  button:disabled { opacity:.5; cursor:default; }
+  #status { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  #dot { width:12px; height:12px; border-radius:50%; background:#666; }
+  #meter { width:80px; height:8px; background:#333; border-radius:4px; overflow:hidden; }
+  #meter > div { height:100%; width:0; background:#4caf50; }
+  details { color:#cfd3da; } summary { cursor:pointer; }
+  #glossary { width:100%; height:90px; margin-top:6px; font-family:monospace; }
+  .hint { color:#7d838c; font-size:12px; }
+  #stage { position:absolute; top:var(--top,60px); left:0; right:0; bottom:0;
+    display:flex; flex-direction:column; justify-content:flex-end; padding:3vh 5vw 6vh; }
+  #history p { margin:0 0 .5em; color:var(--dim); font-size:calc(var(--fs)*.6); line-height:1.25; }
+  #current { font-size:var(--fs); line-height:1.25; font-weight:600; min-height:2.5em;
+    border-left:6px solid var(--accent); padding-left:.5em; }
+  #current .prov { color:#b9bdc4; font-weight:400; }
+  #source { margin-top:.6em; font-size:calc(var(--fs)*.38); color:#6f7680; min-height:1.3em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; direction:rtl; text-align:left; }
+  #source span { direction:ltr; unicode-bidi:bidi-override; }
+  #label { position:absolute; top:calc(var(--top,60px) + 12px); left:5vw; font-size:14px; letter-spacing:.15em; color:var(--dim); }
+  body.full #controls { display:none; } body.full { --top:0px; }
+  #split { position:absolute; top:var(--top,60px); left:0; right:0; bottom:0; display:none;
+    grid-template-columns:1fr 1fr; gap:0; }
+  body.split #stage, body.split #label { display:none; } body.split #split { display:grid; }
+  .col { display:flex; flex-direction:column; justify-content:flex-end; padding:3vh 3vw 6vh; overflow:hidden; }
+  .col + .col { border-left:2px solid #2a2e35; }
+  .col h3 { margin:0 0 auto; font-size:14px; letter-spacing:.15em; color:var(--dim); font-weight:400; }
+  .col .hist p { margin:0 0 .5em; color:var(--dim); font-size:calc(var(--fs)*.45); line-height:1.3; }
+  .col .cur { font-size:calc(var(--fs)*.72); line-height:1.3; font-weight:600; min-height:2.6em;
+    border-left:5px solid var(--accent); padding-left:.5em; }
+  .col .cur .prov { color:#b9bdc4; font-weight:400; }
+  .notice { margin-top:8px; padding:8px 10px; border-radius:6px; font-size:14px; color:#f0f0f0; }
+  .notice.err { background:#4a1714; border-left:4px solid #e53935; }
+  .notice.warn { background:#3d3210; border-left:4px solid #f0b400; }
+  .notice.info { background:#14283d; border-left:4px solid #4a90d9; }
+  .notice .ja { display:block; margin-top:3px; color:#d0d3d8; }
+  .notice .x { float:right; padding:0 8px; background:transparent; font-size:16px; }
+  .notice .act { margin-top:6px; padding:4px 10px; background:#2f5f8f; }
+  #help table { border-collapse:collapse; margin-top:6px; font-size:13px; }
+  #help td { border-top:1px solid #333; padding:5px 8px; vertical-align:top; }
+  #help td.lv { white-space:nowrap; }
+</style>
+</head>
+<body>
+<div id="controls">
+  <div class="row">
+    <label>Provider
+      <select id="prov">
+        <option value="soniox">Soniox (text, ~US$0.18/h)</option>
+        <option value="openai">OpenAI Realtime-Translate (~US$2/h)</option>
+      </select></label>
+    <label>From <select id="from"></select></label>
+    <label>To <select id="to"></select></label>
+    <label><input id="two" type="checkbox"> Two-way (Soniox only)</label>
+    <label>API key <input id="key" type="password" placeholder="paste key here"></label>
+    <button id="forget" title="Delete the stored key from this browser">🗑 Forget key</button>
+    <label>Audio source
+      <select id="src">
+        <option value="mic">Microphone</option>
+        <option value="sys">Zoom / system audio</option>
+        <option value="both">Both (microphone + Zoom)</option>
+      </select></label>
+    <label>Microphone <select id="mic"></select></label>
+    <button id="start" class="primary">▶ Start</button>
+    <button id="stop" class="stop" disabled>■ Stop</button>
+    <div id="status"><div id="meter"><div></div></div><div id="dot"></div><span id="stxt">Stopped / 停止中</span></div>
+  </div>
+  <div class="row">
+    <label>Font size <input id="size" type="range" min="28" max="110" value="56"></label>
+    <label>History lines <input id="hist" type="number" min="0" max="8" value="3" style="width:46px"></label>
+    <label><input id="showja" type="checkbox"> Show source language</label>
+    <label>Layout <select id="layout"><option value="single">Single (translation only)</option><option value="split">Side by side (From | To)</option></select></label>
+    <button id="popL" title="Open the left column (From language) in its own window">⧉ Left window</button>
+    <button id="popR" title="Open the right column (To language) in its own window">⧉ Right window</button>
+    <button id="full">⛶ Full screen</button>
+    <button id="export">⬇ Export transcript</button>
+  </div>
+  <details id="gl">
+    <summary>Glossary and seminar topic (Soniox only — write: source term = target term)</summary>
+    <div class="row" style="margin-top:6px">
+      <label>Topic <input id="topic" style="width:420px" placeholder="e.g. Andean archaeology seminar, Formative Period"></label>
+    </div>
+    <textarea id="glossary" placeholder="One term per line:  source term = target term
+形成期 = Formative Period
+神殿 = temple
+クントゥル・ワシ = Kuntur Wasi"></textarea>
+    <div class="hint">Changes take effect when you press Start.</div>
+  </details>
+  <details id="help">
+    <summary>Troubleshooting / トラブルシューティング</summary>
+    <table id="helptable"></table>
+  </details>
+  <div id="notices"></div>
+</div>
+<div id="label"></div>
+<div id="split">
+  <div class="col" id="colL"><h3></h3><div class="hist"></div><div class="cur"></div></div>
+  <div class="col" id="colR"><h3></h3><div class="hist"></div><div class="cur"></div></div>
+</div>
+<div id="stage">
+  <div id="history"></div>
+  <div id="current"></div>
+  <div id="source"><span></span></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const CFG = {
+  openai: { url:"wss://api.openai.com/v1/realtime/translations?model=gpt-realtime-translate", rate:24000 },
+  soniox: { url:"wss://stt-rt.soniox.com/transcribe-websocket", rate:16000, model:"stt-rt-v5" }
+};
+const SILENCE_MS = 1500, MAX_CHARS = 240;
+
+let SRC = "ja", TGT = "en";
+let ws = null, running = false, ctx = null, stream = null, node = null, prov = "soniox";
+let buf = new Float32Array(0), current = "", provisional = "", silenceTimer = null;
+let history = [], log = [], jaLog = "", jaLine = "", jaProv = "";
+
+// ---------- local preferences ----------
+const load = k => { try { return localStorage.getItem(k); } catch(e) { return null; } };
+const save = (k,v) => { try { localStorage.setItem(k,v); } catch(e) {} };
+$("prov").value = load("si_prov") || "soniox";
+// To add a language: add a line here (ISO code: menu name, column title, CJK = written without spaces).
+const LANGS = {
+  ja: { name:"Japanese",   title:"日本語",     cjk:true  },
+  en: { name:"English",    title:"ENGLISH",    cjk:false },
+  es: { name:"Spanish",    title:"ESPAÑOL",    cjk:false },
+  pt: { name:"Portuguese", title:"PORTUGUÊS",  cjk:false },
+  zh: { name:"Chinese",    title:"中文",       cjk:true  },
+  ko: { name:"Korean",     title:"한국어",     cjk:false },
+};
+const cjk = l => !!(LANGS[l] && LANGS[l].cjk);
+const UP = l => (LANGS[l] ? LANGS[l].name.toUpperCase() : l);
+for (const id of ["from","to"]) $(id).innerHTML = Object.entries(LANGS).map(([k,v]) => `<option value="${k}">${v.name}</option>`).join("");
+(function migrate(){ const old = load("si_dir");   // settings from earlier versions
+  if (!load("si_from") && old) { const [a,b] = old === "two-way" ? ["ja","en"] : old.split("-"); save("si_from",a); save("si_to",b); save("si_two", old === "two-way" ? "1" : "0"); } })();
+$("from").value = load("si_from") || "ja";
+$("to").value = load("si_to") || "en";
+$("two").checked = load("si_two") === "1";
+let TWO = false, curOut = "en", panelsReady = false;
+function setDir(){
+  TWO = $("two").checked; SRC = $("from").value; TGT = $("to").value;
+  $("label").textContent = `LIVE TRANSLATION · ${UP(SRC)} ${TWO ? "⇄" : "→"} ${UP(TGT)}`;
+  if (panelsReady) resetPanels();
+}
+for (const id of ["from","to","two"]) $(id).onchange = () => { save("si_from",$("from").value); save("si_to",$("to").value); save("si_two",$("two").checked?"1":"0"); setDir(); };
+setDir();
+$("size").value = load("si_size") || 56;
+$("hist").value = load("si_hist") || 3;
+$("showja").checked = load("si_ja") === "1";
+$("topic").value = load("si_topic") || "";
+$("glossary").value = load("si_gloss") || "";
+function loadKey(){ $("key").value = load("si_key_" + $("prov").value) || ""; $("gl").style.display = $("prov").value==="soniox" ? "" : "none"; applyUI(); }
+$("prov").onchange = () => { save("si_prov",$("prov").value); loadKey(); };
+function applyUI(){
+  document.documentElement.style.setProperty("--fs", $("size").value + "px");
+  $("source").style.display = $("showja").checked ? "" : "none";
+  document.documentElement.style.setProperty("--top", $("controls").offsetHeight + "px");
+  render();
+}
+$("size").oninput = () => { save("si_size",$("size").value); applyUI(); try { pRender(); } catch(e){} };
+$("hist").oninput = () => { save("si_hist",$("hist").value); render(); pRender(); };
+$("showja").onchange = () => { save("si_ja",$("showja").checked?"1":"0"); applyUI(); };
+$("gl").ontoggle = applyUI;
+window.onresize = applyUI;
+
+function status(txt, color){ $("stxt").textContent = txt; $("dot").style.background = color; }
+
+// ---------- messages (English / Japanese) ----------
+const MSG = {
+  nokey:   { lv:"err",  en:"Enter the API key for the selected Provider.",
+                        ja:"選択したプロバイダーのAPIキーを入力してください。" },
+  key:     { lv:"err",  en:"API key rejected. Copy the key again and check that the selected Provider is correct.",
+                        ja:"APIキーが拒否されました。キーを再度コピーし、選択したプロバイダーが正しいか確認してください。" },
+  credit:  { lv:"err",  en:"No credit left. Top up the balance in the provider's console (Billing).",
+                        ja:"残高がありません。プロバイダーのコンソール（Billing）でチャージしてください。" },
+  model_switched: { lv:"warn", en:"Model {m1} is no longer available. Switched automatically to {m2}. Check the translation quality.",
+                        ja:"モデル{m1}は利用できなくなったため、{m2}に自動で切り替えました。翻訳の品質を確認してください。" },
+  model_newer: { lv:"info", en:"A newer model ({m2}) is available. Current model: {m1}. Test it outside class before switching.",
+                        ja:"新しいモデル（{m2}）が利用可能です。現在のモデル：{m1}。授業外で試してから切り替えてください。" },
+  model_error: { lv:"err", en:"The provider does not accept the selected model. Inform the person who maintains this tool.",
+                        ja:"プロバイダーが選択したモデルを受け付けません。このツールの管理者に連絡してください。" },
+  mic_blocked: { lv:"err", en:"Microphone access is blocked. Click the icon at the left of the address bar, allow the microphone, and press Start again.",
+                        ja:"マイクへのアクセスがブロックされています。アドレスバー左のアイコンをクリックしてマイクを許可し、もう一度Startを押してください。" },
+  mic_missing: { lv:"err", en:"Microphone not found. Check the cable, then choose it again in the Microphone list.",
+                        ja:"マイクが見つかりません。ケーブルを確認し、Microphoneの一覧から選び直してください。" },
+  silent:  { lv:"warn", en:"No sound for more than 10 seconds. Check that the microphone is on, not muted, and the volume is up.",
+                        ja:"10秒以上音声がありません。マイクの電源、ミュート、音量を確認してください。" },
+  offline: { lv:"err",  en:"No internet connection. Check the Wi-Fi or network cable. Translation resumes automatically when the connection returns.",
+                        ja:"インターネットに接続されていません。Wi-Fiまたはケーブルを確認してください。接続が戻ると自動で再開します。" },
+  unstable:{ lv:"warn", en:"The connection dropped several times in the last 5 minutes. The network may be unstable; use a wired connection if possible.",
+                        ja:"過去5分間に接続が何度も切れました。ネットワークが不安定な可能性があります。可能であれば有線接続を使用してください。" },
+  no_trans:{ lv:"warn", en:"Sound is coming in, but no translation has appeared for 30 seconds. Check the From setting (it must match the spoken language).",
+                        ja:"音声は入っていますが、30秒間翻訳が表示されていません。From（話されている言語）の設定を確認してください。" },
+  sys_noaudio: { lv:"err", en:"Zoom audio was not shared. Press Start again, choose 'Entire screen', and tick 'Share system audio'.",
+                        ja:"Zoomの音声が共有されていません。もう一度Startを押し、「画面全体」を選んで「システム音声も共有する」にチェックを入れてください。" },
+  sys_cancel:  { lv:"warn", en:"Screen sharing was cancelled or stopped, so Zoom audio is not being captured.",
+                        ja:"画面共有がキャンセルまたは停止されたため、Zoomの音声は取得されていません。" },
+  both_echo:   { lv:"info", en:"Both sources: if the classroom speakers play Zoom audio near the microphone, sentences may be translated twice. Use a hand-held or lapel microphone, or switch the source.",
+                        ja:"両方の音源：教室のスピーカーからZoomの音声がマイクの近くで流れると、同じ文が二重に翻訳されることがあります。ハンドマイクやピンマイクを使うか、音源を切り替えてください。" },
+  sys_unsupported: { lv:"err", en:"This device or browser cannot capture Zoom/system audio (e.g. iPad). Use 'Microphone', or use the Windows PC with Chrome.",
+                        ja:"この端末またはブラウザ（iPadなど）ではZoom／システム音声を取得できません。「Microphone」を使うか、WindowsのPCでChromeを使用してください。" },
+  same_lang: { lv:"err", en:"From and To are the same language. Choose two different languages.",
+                        ja:"FromとToが同じ言語です。異なる言語を選んでください。" },
+  popup:   { lv:"warn", en:"The browser blocked the new window. Allow pop-ups for this page (icon at the right of the address bar) and try again.",
+                        ja:"ブラウザが新しいウィンドウをブロックしました。このページのポップアップを許可し（アドレスバー右のアイコン）、もう一度お試しください。" },
+  rate:    { lv:"warn", en:"Too many requests. Waiting one minute, then reconnecting automatically.",
+                        ja:"リクエストが多すぎます。1分待ってから自動で再接続します。" },
+  cant_connect: { lv:"err", en:"Cannot connect to the provider. Check the API key, the credit balance, and the internet connection.",
+                        ja:"プロバイダーに接続できません。APIキー、残高、インターネット接続を確認してください。" },
+  twoway_openai:{ lv:"err", en:"Two-way mode is only available with Soniox. Change the Provider or untick Two-way.",
+                        ja:"双方向モードはSonioxでのみ利用できます。プロバイダーを変更するか、Two-wayのチェックを外してください。" },
+  unknown: { lv:"err",  en:"Unexpected error: {msg}. Use the backup (e.g. Maestra) and inform the person who maintains this tool — the provider's API may have changed.",
+                        ja:"予期しないエラー：{msg}。バックアップ（Maestraなど）を使用し、このツールの管理者に連絡してください。プロバイダーのAPIが変更された可能性があります。" },
+};
+const active = {};
+function fill(t, v){ return t.replace(/\{(\w+)\}/g, (_,k) => (v && v[k] != null) ? v[k] : ""); }
+function notify(id, vars, action){ if (!MSG[id]) return; active[id] = { vars, action }; renderNotices(); }
+function clearN(id){ if (active[id]) { delete active[id]; renderNotices(); } }
+function clearAllN(except){ for (const k of Object.keys(active)) if (!(except||[]).includes(k)) delete active[k]; renderNotices(); }
+function renderNotices(){
+  const box = $("notices"); box.innerHTML = "";
+  for (const [id, a] of Object.entries(active)) {
+    const m = MSG[id], d = document.createElement("div");
+    d.className = "notice " + m.lv;
+    d.innerHTML = `<button class="x" title="Dismiss">×</button>${esc(fill(m.en,a.vars))}<span class="ja">${esc(fill(m.ja,a.vars))}</span>`;
+    d.querySelector(".x").onclick = () => clearN(id);
+    if (a.action) { const b = document.createElement("button"); b.className = "act"; b.textContent = a.action.label; b.onclick = () => { a.action.run(); clearN(id); }; d.appendChild(b); }
+    box.appendChild(d);
+  }
+  applyUI();
+}
+(function buildHelp(){
+  const L = { err:"🔴", warn:"🟡", info:"🔵" };
+  $("helptable").innerHTML = Object.values(MSG).map(m =>
+    `<tr><td class="lv">${L[m.lv]}</td><td>${esc(fill(m.en,{m1:"vX",m2:"vY",msg:"…"}))}</td><td>${esc(fill(m.ja,{m1:"vX",m2:"vY",msg:"…"}))}</td></tr>`).join("");
+})();
+function classify(code, msg){
+  const t = `${code||""} ${msg||""}`.toLowerCase();
+  if (/401|unauthor|invalid.?api.?key|api key|authenticat/.test(t)) return "key";
+  if (/402|insufficient|quota|balance|credit|billing|payment/.test(t)) return "credit";
+  if (/429|rate.?limit|too many/.test(t)) return "rate";
+  if (/model/.test(t)) return "model";
+  return "unknown";
+}
+window.addEventListener("offline", () => notify("offline"));
+window.addEventListener("online", () => clearN("offline"));
+
+// ---------- microphones ----------
+async function listMics(){
+  try { (await navigator.mediaDevices.getUserMedia({audio:true})).getTracks().forEach(t=>t.stop()); } catch(e){}
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="audioinput");
+  $("mic").innerHTML = devs.map(d=>`<option value="${d.deviceId}">${d.label||"Microphone"}</option>`).join("");
+  const prev = load("si_mic"); if (prev && devs.some(d=>d.deviceId===prev)) $("mic").value = prev;
+}
+$("mic").onchange = () => save("si_mic",$("mic").value);
+
+// ---------- subtitles ----------
+function esc(s){ return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function render(){
+  const n = +$("hist").value;
+  $("history").innerHTML = history.slice(-n).map(t=>`<p>${esc(t)}</p>`).join("");
+  $("current").innerHTML = esc(current) + (provisional ? `<span class="prov">${esc(provisional)}</span>` : "");
+  $("source").firstChild.textContent = (jaLine + jaProv).slice(-120);
+}
+function finalize(){
+  const t = current.trim();
+  if (t) { history.push(t); if (history.length > 50) history.shift(); log.push(`[${new Date().toLocaleTimeString()}] ${t}`); }
+  current = ""; render();
+}
+const OPEN_END = /[、，,]\s*$/;
+const unfinished = (t, lang) => OPEN_END.test(t) && t.length < (cjk(lang) ? 90 : MAX_CHARS);
+function armSilence(){ clearTimeout(silenceTimer); silenceTimer = setTimeout(() => { if (!provisional && !unfinished(current, TWO ? curOut : TGT)) finalize(); else if (provisional) armSilence(); }, SILENCE_MS); }
+function onDelta(d){
+  lastTrans = Date.now(); clearN("no_trans");
+  current += d; armSilence();
+  const ja = cjk(TWO ? curOut : TGT), maxc = ja ? 90 : MAX_CHARS, minc = ja ? 25 : 60;
+  if (/[.!?。！？]["')\]」』]?\s*$/.test(current) && current.length > minc) { finalize(); return; }
+  if (current.length > maxc) {
+    let cut = ja ? Math.max(current.lastIndexOf("、"), current.lastIndexOf("，")) : current.lastIndexOf(" ", maxc - 40);
+    if (cut < 10) cut = maxc - 10;
+    const rest = current.slice(cut+1); current = current.slice(0, ja ? cut+1 : cut); finalize(); current = rest;
+  }
+  render();
+}
+
+// ---------- side-by-side panels ----------
+var panels = {};
+var pops = { L:null, R:null };
+const newP = () => ({ lines:[], cur:"", prov:"", timer:null });
+function resetPanels(){ panels = {}; panels[SRC] = newP(); panels[TGT] = newP(); pRender(); }
+function pRender(){
+  const n = +$("hist").value, inMain = document.body.classList.contains("split");
+  for (const [side, lang] of [["L", SRC], ["R", TGT]]) {
+    const P = panels[lang]; if (!P) continue;
+    const title = LANGS[lang] ? LANGS[lang].title : lang;
+    const hist = P.lines.slice(-n).map(t=>`<p>${esc(t)}</p>`).join("");
+    const cur = esc(P.cur) + (P.prov ? `<span class="prov">${esc(P.prov)}</span>` : "");
+    if (inMain) {
+      const col = $("col" + side);
+      col.querySelector("h3").textContent = title;
+      col.querySelector(".hist").innerHTML = hist; col.querySelector(".cur").innerHTML = cur;
+    }
+    const w = pops[side];
+    if (w && !w.closed) {
+      try {
+        w.document.documentElement.style.setProperty("--fs", $("size").value + "px");
+        w.document.querySelector("h3").textContent = title; w.document.title = title + " — Seminar Interpreter";
+        w.document.getElementById("hist").innerHTML = hist;
+        w.document.getElementById("cur").innerHTML = cur;
+      } catch(e) {}
+    }
+  }
+}
+function openPop(side){
+  const w = window.open("", "si_" + side, "width=1000,height=640");
+  if (!w) { notify("popup"); return; }
+  const lang = side === "L" ? SRC : TGT, title = LANGS[lang] ? LANGS[lang].title : lang;
+  w.document.open();
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title} — Seminar Interpreter</title><style>
+    :root{--fs:56px} html,body{margin:0;height:100%;background:#0b0d10;color:#f5f5f0;
+    font-family:"Segoe UI","Helvetica Neue",Arial,"Yu Gothic UI","Meiryo","Hiragino Sans",sans-serif}
+    body{display:flex;flex-direction:column;justify-content:flex-end;padding:3vh 4vw 6vh;box-sizing:border-box}
+    h3{position:absolute;top:12px;left:4vw;margin:0;font-size:14px;letter-spacing:.15em;color:#8a8f98;font-weight:400}
+    #hist p{margin:0 0 .5em;color:#8a8f98;font-size:calc(var(--fs)*.6);line-height:1.3}
+    #cur{font-size:var(--fs);line-height:1.3;font-weight:600;min-height:2.6em;border-left:6px solid #ffd34d;padding-left:.5em}
+    #cur .prov{color:#b9bdc4;font-weight:400}
+    #fs{position:absolute;top:8px;right:12px;padding:6px 12px;border:0;border-radius:6px;background:#2e333b;color:#fff;cursor:pointer}
+    </style></head><body><h3>${title}</h3>
+    <button id="fs" onclick="document.documentElement.requestFullscreen()">⛶ Full screen</button>
+    <div id="hist"></div><div id="cur"></div>
+    <script>document.addEventListener("fullscreenchange",()=>{document.getElementById("fs").style.display=document.fullscreenElement?"none":""});<\/script>
+    </body></html>`);
+  w.document.close();
+  pops[side] = w; pRender();
+}
+$("popL").onclick = () => openPop("L");
+$("popR").onclick = () => openPop("R");
+window.addEventListener("beforeunload", () => { for (const k of ["L","R"]) try { pops[k] && pops[k].close(); } catch(e){} });
+function pSoft(lang){ const P = panels[lang]; if (P && !unfinished(P.cur, lang)) pFinal(lang); }
+function pFinal(lang){
+  const P = panels[lang]; if (!P) return;
+  if (P.cur.trim()) { P.lines.push(P.cur.trim()); if (P.lines.length > 50) P.lines.shift(); }
+  P.cur = ""; pRender();
+}
+function pAppend(lang, text){
+  const P = panels[lang]; if (!P || !text) return;
+  P.cur += text;
+  clearTimeout(P.timer); P.timer = setTimeout(() => pSoft(lang), SILENCE_MS);
+  const ja = cjk(lang), maxc = ja ? 90 : MAX_CHARS, minc = ja ? 25 : 60;
+  if (/[.!?。！？]["')\]」』]?\s*$/.test(P.cur) && P.cur.length > minc) { pFinal(lang); return; }
+  if (P.cur.length > maxc) {
+    let cut = ja ? Math.max(P.cur.lastIndexOf("、"), P.cur.lastIndexOf("，")) : P.cur.lastIndexOf(" ", maxc - 40);
+    if (cut < 10) cut = maxc - 10;
+    const rest = P.cur.slice(cut+1); P.cur = P.cur.slice(0, ja ? cut+1 : cut); pFinal(lang); P.cur = rest;
+  }
+  pRender();
+}
+panelsReady = true; resetPanels();
+$("layout").value = load("si_layout") || "split";
+function setLayout(){ document.body.classList.toggle("split", $("layout").value === "split"); pRender(); }
+$("layout").onchange = () => { save("si_layout",$("layout").value); setLayout(); };
+setLayout();
+
+// ---------- glossary -> Soniox context ----------
+function sonioxContext(){
+  const ctxObj = {};
+  const topic = $("topic").value.trim();
+  if (topic) ctxObj.general = [{ key:"domain", value:"Academic seminar" }, { key:"topic", value: topic }];
+  const pairs = $("glossary").value.split("\n").map(l=>l.split("=").map(s=>s.trim())).filter(p=>p[0]);
+  if (pairs.length) {
+    ctxObj.terms = pairs.map(p=>p[0]);
+    const tt = pairs.filter(p=>p[1]).map(p=>({ source:p[0], target:p[1] }));
+    if (tt.length) ctxObj.translation_terms = tt;
+  }
+  return Object.keys(ctxObj).length ? ctxObj : undefined;
+}
+
+// ---------- connection ----------
+let sonioxModel = load("si_soniox_model") || CFG.soniox.model, rtModels = null;
+let opened = false, failCount = 0, nextDelay = 1000, reconnects = [];
+let lastLoud = 0, lastTrans = 0, startedAt = 0, watchdog = null;
+function handleError(code, msg){
+  const kind = classify(code, msg);
+  console.error("Provider error:", code, msg);
+  if (kind === "key" || kind === "credit") { notify(kind); stop(); return; }
+  if (kind === "rate") { notify("rate"); nextDelay = 60000; try { ws.close(); } catch(e){} return; }
+  if (kind === "model" && prov === "soniox") {
+    const best = rtModels && rtModels[rtModels.length-1];
+    if (best && best !== sonioxModel) {
+      notify("model_switched", { m1:sonioxModel, m2:best });
+      sonioxModel = best; save("si_soniox_model", best); try { ws.close(); } catch(e){} return;
+    }
+    notify("model_error"); stop(); return;
+  }
+  notify("unknown", { msg: `${code||""} ${msg||""}`.trim() }); stop();
+}
+function connect(){
+  opened = false;
+  const key = $("key").value.trim();
+  status("Connecting… / 接続中…", "#f0b400");
+  if (prov === "openai") {
+    ws = new WebSocket(CFG.openai.url, ["realtime", "openai-insecure-api-key." + key]);
+    ws.onopen = () => {
+      opened = true; failCount = 0; clearN("cant_connect");
+      ws.send(JSON.stringify({ type:"session.update", session:{ audio:{
+        output:{ language: TGT },
+        input:{ transcription:{ model:"gpt-realtime-whisper" }, noise_reduction:{ type:"near_field" } } }}}));
+      status("Translating (OpenAI) / 翻訳中", "#4caf50");
+    };
+    ws.onmessage = e => {
+      let ev; try { ev = JSON.parse(e.data); } catch(_) { return; }
+      if (ev.type === "session.output_transcript.delta") { onDelta(ev.delta || ""); pAppend(TGT, ev.delta || ""); }
+      else if (ev.type === "session.input_transcript.delta") { pAppend(SRC, ev.delta || ""); jaLine += ev.delta || ""; jaLog += ev.delta || ""; jaLine = jaLine.slice(-200); render(); }
+      else if (ev.type === "error") handleError(ev.error?.code || ev.error?.type, ev.error?.message);
+    };
+  } else {
+    ws = new WebSocket(CFG.soniox.url);
+    ws.binaryType = "arraybuffer";
+    ws.onopen = () => {
+      const cfg = {
+        api_key: key, model: sonioxModel,
+        audio_format: "pcm_s16le", sample_rate: CFG.soniox.rate, num_channels: 1,
+        language_hints: TWO ? [SRC, TGT] : [SRC], enable_endpoint_detection: true, max_endpoint_delay_ms: 1500,
+        translation: TWO ? { type:"two_way", language_a:SRC, language_b:TGT } : { type:"one_way", target_language: TGT }
+      };
+      const c = sonioxContext(); if (c) cfg.context = c;
+      opened = true; failCount = 0; clearN("cant_connect");
+      ws.send(JSON.stringify(cfg));
+      status("Translating (Soniox · " + sonioxModel + ") / 翻訳中", "#4caf50");
+    };
+    ws.onmessage = e => {
+      let r; try { r = JSON.parse(e.data); } catch(_) { return; }
+      if (r.error_code) { handleError(r.error_code, r.error_message); return; }
+      let provEN = "", provJA = ""; const pp = { [SRC]:"", [TGT]:"" };
+      for (const t of (r.tokens || [])) {
+        if (t.text === "<end>") { pSoft(SRC); pSoft(TGT); continue; }
+        if (!t.text || t.text === "<fin>") continue;
+        const lang = t.language || (t.translation_status === "translation" ? TGT : SRC);
+        if (t.is_final) pAppend(lang, t.text); else if (lang in pp) pp[lang] += t.text;
+        if (t.translation_status === "translation") {
+          if (t.is_final) {
+            if (TWO && t.language && t.language !== curOut) { if (current.trim()) finalize(); curOut = t.language; }
+            onDelta(t.text);
+          } else provEN += t.text;
+        } else {
+          if (t.is_final) { jaLine = (jaLine + t.text).slice(-200); jaLog += t.text; } else provJA += t.text;
+        }
+      }
+      provisional = provEN; jaProv = provJA; render();
+      for (const l of [SRC, TGT]) if (panels[l]) panels[l].prov = pp[l] || ""; pRender();
+      if (r.finished && running) ws.close();
+    };
+  }
+  ws.onclose = ev => {
+    if (!running) return;
+    if ([1008, 4001, 4003].includes(ev.code)) { handleError(ev.code, ev.reason || "unauthorized"); return; }
+    if (!opened && navigator.onLine) { if (++failCount >= 3) { notify("cant_connect"); stop(); return; } }
+    const now = Date.now(); reconnects = reconnects.filter(t => now - t < 300000); reconnects.push(now);
+    if (reconnects.length > 3) notify("unstable");
+    status("Reconnecting… / 再接続中…", "#f0b400");
+    const d = nextDelay; nextDelay = 1000;
+    setTimeout(() => { if (running) { clearN("rate"); connect(); } }, d);
+  };
+}
+
+// ---------- audio ----------
+function toPCM16(f32){
+  const i16 = new Int16Array(f32.length);
+  for (let i=0;i<f32.length;i++){ const s=Math.max(-1,Math.min(1,f32[i])); i16[i]= s<0? s*0x8000 : s*0x7fff; }
+  return i16;
+}
+function b64(i16){
+  const bytes = new Uint8Array(i16.buffer); let bin = "";
+  for (let i=0;i<bytes.length;i+=0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i,i+0x8000));
+  return btoa(bin);
+}
+
+// ---------- pre-start checks ----------
+async function fetchT(url, opts, ms){
+  const c = new AbortController(); const t = setTimeout(() => c.abort(), ms || 5000);
+  try { return await fetch(url, { ...opts, signal:c.signal }); } finally { clearTimeout(t); }
+}
+const vnum = id => +((id.match(/v(\d+)/) || [0,0])[1]);
+async function preflight(key){
+  // Returns false if Start must be cancelled. Network/CORS failures are ignored (best effort).
+  try {
+    if (prov === "soniox") {
+      const r = await fetchT("https://api.soniox.com/v1/models", { headers:{ Authorization:"Bearer " + key } });
+      if (r.status === 401 || r.status === 403) { notify("key"); return false; }
+      if (!r.ok) return true;
+      const j = await r.json(); const list = (j.models || j.data || j || []);
+      rtModels = list.map(m => typeof m === "string" ? m : (m.id || m.name || "")).filter(id => /^stt-rt-v\d+$/.test(id)).sort((a,b) => vnum(a) - vnum(b));
+      if (!rtModels.length) return true;
+      const best = rtModels[rtModels.length-1];
+      if (!rtModels.includes(sonioxModel)) { notify("model_switched", { m1:sonioxModel, m2:best }); sonioxModel = best; save("si_soniox_model", best); }
+      else if (vnum(best) > vnum(sonioxModel)) notify("model_newer", { m1:sonioxModel, m2:best },
+        { label:`Use ${best} / ${best}を使用`, run:() => { sonioxModel = best; save("si_soniox_model", best); } });
+    } else {
+      const r = await fetchT("https://api.openai.com/v1/models/gpt-realtime-translate", { headers:{ Authorization:"Bearer " + key } });
+      if (r.status === 401) { notify("key"); return false; }
+      if (r.status === 429) { const j = await r.json().catch(()=>({})); if (classify("", j.error?.code + " " + j.error?.message) === "credit") { notify("credit"); return false; } }
+    }
+  } catch(e) { /* offline, CORS or timeout: continue, the connection itself will report problems */ }
+  return true;
+}
+
+// ---------- audio sources ----------
+let streams = [];
+async function openSources(rate){
+  const src = $("src").value; const out = [];
+  if (src === "mic" || src === "both") {
+    try {
+      out.push(await navigator.mediaDevices.getUserMedia({ audio:{
+        deviceId: $("mic").value ? { exact:$("mic").value } : undefined,
+        echoCancellation: src === "both", noiseSuppression:true, autoGainControl:true }}));
+    } catch(e) {
+      if (e.name === "NotAllowedError" || e.name === "SecurityError") notify("mic_blocked");
+      else if (e.name === "NotFoundError" || e.name === "OverconstrainedError") { notify("mic_missing"); listMics(); }
+      else notify("unknown", { msg: e.name + ": " + e.message });
+      e.handled = true; throw e;
+    }
+  }
+  if (src === "sys" || src === "both") {
+    if (!navigator.mediaDevices.getDisplayMedia) {
+      out.forEach(s => s.getTracks().forEach(t => t.stop())); notify("sys_unsupported");
+      const e = new Error("getDisplayMedia unsupported"); e.handled = true; throw e;
+    }
+    let ds;
+    try {
+      ds = await navigator.mediaDevices.getDisplayMedia({ video:true, systemAudio:"include",
+        audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
+    } catch(e) { out.forEach(s => s.getTracks().forEach(t => t.stop())); notify("sys_cancel"); e.handled = true; throw e; }
+    if (!ds.getAudioTracks().length) {
+      ds.getTracks().forEach(t => t.stop()); out.forEach(s => s.getTracks().forEach(t => t.stop()));
+      notify("sys_noaudio"); const e = new Error("no system audio"); e.handled = true; throw e;
+    }
+    ds.getVideoTracks().forEach(t => t.enabled = false);   // only the sound is used
+    ds.getAudioTracks()[0].addEventListener("ended", () => { if (running) notify("sys_cancel"); });
+    out.push(ds);
+  }
+  if (src === "both") notify("both_echo");
+  return out;
+}
+
+let rsBuf = new Float32Array(0);
+function resample(data, inRate, outRate){
+  if (inRate === outRate) return data;
+  const all = new Float32Array(rsBuf.length + data.length); all.set(rsBuf); all.set(data, rsBuf.length);
+  const ratio = inRate / outRate, n = Math.floor(all.length / ratio), out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const a = Math.floor(i * ratio), b = Math.min(all.length, Math.floor((i + 1) * ratio));
+    let sum = 0; for (let j = a; j < b; j++) sum += all[j]; out[i] = sum / Math.max(1, b - a);
+  }
+  rsBuf = all.slice(Math.floor(n * ratio));
+  return out;
+}
+async function start(){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!ctx || ctx.state === "closed") ctx = new AC();     // created inside the click: required on iPad
+  try { ctx.resume(); } catch(e){}
+  clearAllN(["model_newer"]);
+  const key = $("key").value.trim();
+  if (!key) { notify("nokey"); return; }
+  prov = $("prov").value;
+  setDir(); curOut = TGT;
+  if (SRC === TGT) { notify("same_lang"); return; }
+  if (prov === "openai" && TWO) { notify("twoway_openai"); return; }
+  save("si_key_" + prov, key);
+  save("si_topic", $("topic").value); save("si_gloss", $("glossary").value); save("si_srcsel", $("src").value);
+  $("start").disabled = true; status("Checking… / 確認中…", "#f0b400");
+  if (!navigator.onLine) notify("offline");
+  if (!(await preflight(key))) { $("start").disabled = false; status("Stopped / 停止中", "#666"); return; }
+  running = true; $("stop").disabled = false; $("prov").disabled = true; $("from").disabled = $("to").disabled = $("two").disabled = true; $("src").disabled = true;
+  const rate = CFG[prov].rate, chunk = rate / 10;   // 100 ms
+  streams = await openSources(rate);
+  const inRate = ctx.sampleRate; rsBuf = new Float32Array(0); buf = new Float32Array(0);
+  // ScriptProcessor works when the page is opened as a local file (AudioWorklet does not).
+  node = ctx.createScriptProcessor(4096, 1, 1);
+  const mute = ctx.createGain(); mute.gain.value = 0;
+  for (const st of streams) ctx.createMediaStreamSource(st).connect(node);   // sources are summed
+  node.connect(mute); mute.connect(ctx.destination);
+  startedAt = lastLoud = lastTrans = Date.now();
+  node.onaudioprocess = (ev) => { const raw = new Float32Array(ev.inputBuffer.getChannelData(0));
+    let peak = 0; for (const v of raw) peak = Math.max(peak, Math.abs(v));
+    const data = resample(raw, inRate, rate);
+    if (peak > 0.02) lastLoud = Date.now();
+    $("meter").firstChild.style.width = Math.min(100, peak*140) + "%";
+    const nb = new Float32Array(buf.length + data.length); nb.set(buf); nb.set(data, buf.length); buf = nb;
+    while (buf.length >= chunk) {
+      const pcm = toPCM16(buf.slice(0, chunk)); buf = buf.slice(chunk);
+      if (!ws || ws.readyState !== 1) continue;
+      if (prov === "openai") ws.send(JSON.stringify({ type:"session.input_audio_buffer.append", audio: b64(pcm) }));
+      else ws.send(pcm.buffer);
+    }
+  };
+  clearInterval(watchdog);
+  watchdog = setInterval(() => {
+    if (!running) return;
+    const now = Date.now();
+    if (now - lastLoud > 10000) notify("silent"); else clearN("silent");
+    const live = ws && ws.readyState === 1;
+    if (live && now - startedAt > 30000 && now - lastLoud < 5000 && now - lastTrans > 30000) notify("no_trans");
+    if (!reconnects.some(t => now - t < 300000)) clearN("unstable");
+  }, 2000);
+  connect();
+}
+function stop(){
+  running = false; clearInterval(watchdog);
+  $("start").disabled = false; $("stop").disabled = true; $("prov").disabled = false; $("from").disabled = $("to").disabled = $("two").disabled = false; $("src").disabled = false;
+  try { if (ws && ws.readyState === 1 && prov === "soniox") ws.send(""); } catch(e){}
+  try { ws && ws.close(); } catch(e){}
+  try { streams.forEach(st => st.getTracks().forEach(t => t.stop())); streams = []; } catch(e){}
+  try { node && (node.onaudioprocess = null); node && node.disconnect(); ctx && ctx.state !== "closed" && ctx.close(); } catch(e){}
+  if (provisional) { current += provisional; provisional = ""; }
+  finalize(); for (const l of Object.keys(panels)) { panels[l].cur += panels[l].prov; panels[l].prov = ""; pFinal(l); }
+  clearN("silent"); clearN("no_trans");
+  status("Stopped / 停止中", "#666"); $("meter").firstChild.style.width = "0";
+}
+$("forget").onclick = () => { try { localStorage.removeItem("si_key_" + $("prov").value); } catch(e){} $("key").value = ""; status("Key deleted from this browser / このブラウザからキーを削除しました", "#666"); };
+$("start").onclick = () => start().catch(e => { if (!e.handled) notify("unknown", { msg: e.message }); stop(); });
+$("src").value = load("si_srcsel") || "mic";
+$("stop").onclick = stop;
+
+// ---------- full screen / export ----------
+$("full").onclick = () => { document.body.classList.add("full"); document.documentElement.requestFullscreen?.(); applyUI(); };
+document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement) { document.body.classList.remove("full"); applyUI(); } });
+$("export").onclick = () => {
+  const txt = (TWO ? `TRANSLATION (${UP(SRC)} ⇄ ${UP(TGT)})` : `${UP(TGT)} (translation)`) + "\n=====\n" + log.join("\n") + "\n\n" + (TWO ? "SOURCE (as spoken)" : `${UP(SRC)} (source)`) + "\n=====\n" + jaLog;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([txt], {type:"text/plain"}));
+  a.download = "seminar-transcript-" + new Date().toISOString().slice(0,10) + ".txt"; a.click();
+};
+
+listMics(); loadKey();
+</script>
+</body>
+</html>
