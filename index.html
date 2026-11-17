@@ -7,102 +7,179 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Interpreter">
-<title>Seminar Interpreter — JA → EN</title>
+<meta name="theme-color" content="#0b0d10">
+<!-- iPad: "Add to Home Screen" opens it full screen, with this icon -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Seminar Interpreter</title>
+<!-- BIZ UDPGothic: Morisawa universal-design font, very legible Japanese on screens (also on iPad, via Google Fonts) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<script>/* apply the saved theme before the page is drawn (no flash) */ try { document.documentElement.dataset.theme = localStorage.getItem("si_theme") || "dark"; } catch(e) {}</script>
+<style id="themevars">
+  /* Colour themes. Copied as-is into the Left / Right / Troubleshooting windows, so all windows share them. */
+  :root { color-scheme:dark;
+    --hist-last:#c4c8cf; --bg:#0b0d10; --fg:#f5f5f0; --dim:#8a8f98; --accent:#ffd34d; --prov:#b9bdc4; --src:#6f7680; --strong:#fff;
+    --panel:#1a1d22; --menu:#23272e; --ctl:#cfd3da; --hint:#7d838c; --in-bg:#0f1114; --in-fg:#eee; --border:#3a3f47;
+    --btn:#2e333b; --btn-fg:#fff; --line:#2a2e35; --meter:#333; --float:rgba(46,51,59,.9); --zebra:#12151a; --ok:#6fbf73;
+    --n-fg:#f0f0f0; --n-ja:#d0d3d8; --n-err:#4a1714; --n-warn:#3d3210; --n-info:#14283d; }
+  :root[data-theme="light"] { color-scheme:light;
+    --hist-last:#3a3f47; --bg:#fafaf7; --fg:#15171a; --dim:#5f6670; --accent:#e0a800; --prov:#6b7280; --src:#7a818c; --strong:#000;
+    --panel:#e8eaed; --menu:#fff; --ctl:#2a2e35; --hint:#5f6670; --in-bg:#fff; --in-fg:#15171a; --border:#b8bec7;
+    --btn:#d3d7dd; --btn-fg:#15171a; --line:#d3d7dd; --meter:#c8ccd2; --float:rgba(211,215,221,.95); --zebra:#f0f1f3; --ok:#2e7d32;
+    --n-fg:#15171a; --n-ja:#3a3f47; --n-err:#fde8e7; --n-warn:#fff4d6; --n-info:#e3effb; }
+</style>
 <style>
-  :root { --fs: 56px; --bg:#0b0d10; --fg:#f5f5f0; --dim:#8a8f98; --accent:#ffd34d; }
+  /* --bottom: free space under the subtitles (also used by the Left/Right windows) */
+  :root { --bottom: calc(14vh + env(safe-area-inset-bottom)); --fs: 56px; }
   * { box-sizing: border-box; }
   html,body { margin:0; height:100%; height:100dvh; overflow:hidden; background:var(--bg); color:var(--fg);
-    font-family: "Segoe UI", "Helvetica Neue", Arial, "Yu Gothic UI", "Meiryo", "Hiragino Sans", sans-serif; }
+    font-family: "Segoe UI", "Helvetica Neue", Arial, "BIZ UDPGothic", "Meiryo", "Hiragino Sans", "Noto Sans JP", sans-serif; }
   #controls { padding:calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 12px calc(16px + env(safe-area-inset-left));
-    background:#1a1d22; font-size:14px; line-height:1.4; }
+    background:var(--panel); font-size:14px; line-height:1.4; }
   .row { display:flex; flex-wrap:wrap; gap:12px 14px; align-items:center; }
   .row + .row { margin-top:12px; }
-  #controls label { display:flex; align-items:center; gap:6px; color:#cfd3da; }
+  #controls label { display:flex; align-items:center; gap:6px; color:var(--ctl); }
   #controls input[type=password]{ width:200px; }
-  select, input, textarea { background:#0f1114; color:#eee; border:1px solid #3a3f47; border-radius:4px; padding:4px 6px; }
-  button { padding:7px 14px; font-size:14px; border:0; border-radius:6px; cursor:pointer; background:#2e333b; color:#fff; }
-  button.primary { background:#2f7d32; } button.stop { background:#b3261e; }
+  select, input, textarea { background:var(--in-bg); color:var(--in-fg); border:1px solid var(--border); border-radius:4px; padding:4px 6px; }
+  button { padding:7px 14px; font-size:14px; border:0; border-radius:6px; cursor:pointer; background:var(--btn); color:var(--btn-fg); }
+  button.primary { background:#2f7d32; color:#fff; } button.stop { background:#b3261e; color:#fff; }
   button:disabled { opacity:.5; cursor:default; }
-  #status { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .sep { width:1px; height:22px; background:var(--border); }
+  #status { display:flex; align-items:center; gap:8px; color:var(--ctl); }
   #dot { width:12px; height:12px; border-radius:50%; background:#666; }
-  #meter { width:80px; height:8px; background:#333; border-radius:4px; overflow:hidden; }
+  #meter { width:80px; height:8px; background:var(--meter); border-radius:4px; overflow:hidden; }
   #meter > div { height:100%; width:0; background:#4caf50; }
-  details { color:#cfd3da; } summary { cursor:pointer; }
+  details { color:var(--ctl); } summary { cursor:pointer; }
   #glossary { width:100%; height:90px; margin-top:6px; font-family:monospace; }
-  .hint { color:#7d838c; font-size:12px; }
+  .hint { color:var(--hint); font-size:12px; }
   #stage { position:absolute; top:var(--top,60px); left:0; right:0; bottom:0;
-    display:flex; flex-direction:column; justify-content:flex-end; padding:3vh 5vw 6vh; }
+    display:flex; flex-direction:column; justify-content:flex-end; padding:3vh 5vw var(--bottom); }
   #history p { margin:0 0 .5em; color:var(--dim); font-size:calc(var(--fs)*.6); line-height:1.25; }
-  #current { font-size:var(--fs); line-height:1.25; font-weight:600; min-height:2.5em;
+  /* The big line has a fixed height (4 lines) so it never grows or shrinks; text sits at the bottom,
+     and if a long text does not fit, its oldest (top) part is hidden. */
+  #current, .col .cur { display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; flex:none; }
+  #current { font-size:var(--fs); line-height:1.25; font-weight:600; height:calc(1.25em * 4);
     border-left:6px solid var(--accent); padding-left:.5em; }
-  #current .prov { color:#b9bdc4; font-weight:400; }
-  #source { margin-top:.6em; font-size:calc(var(--fs)*.38); color:#6f7680; min-height:1.3em;
+  #history p:last-child, .col .hist p:last-child { font-weight:600; color:var(--hist-last); }   /* most recent line */
+  #current .prov { color:var(--prov); font-weight:400; }
+  #source { margin-top:.6em; font-size:calc(var(--fs)*.38); color:var(--src); min-height:1.3em;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; direction:rtl; text-align:left; }
   #source span { direction:ltr; unicode-bidi:bidi-override; }
   #label { position:absolute; top:calc(var(--top,60px) + 12px); left:5vw; font-size:14px; letter-spacing:.15em; color:var(--dim); }
   body.full #controls { display:none; } body.full { --top:env(safe-area-inset-top); }
   #exitfs { position:fixed; z-index:20; top:calc(12px + env(safe-area-inset-top)); right:calc(14px + env(safe-area-inset-right));
-    display:none; opacity:0; pointer-events:none; transition:opacity .3s; background:rgba(46,51,59,.9); font-size:15px; }
+    display:none; opacity:.35; transition:opacity .3s; background:var(--float); color:var(--btn-fg); font-size:15px; }
   body.full #exitfs { display:block; }
-  body.full.showexit #exitfs { opacity:1; pointer-events:auto; }
+  body.full.showexit #exitfs, body.full #exitfs:hover { opacity:1; }
   #split { position:absolute; top:var(--top,60px); left:0; right:0; bottom:0; display:none;
     grid-template-columns:1fr 1fr; gap:0; }
   body.split #stage, body.split #label { display:none; } body.split #split { display:grid; }
-  .col { display:flex; flex-direction:column; justify-content:flex-end; padding:3vh 3vw 6vh; overflow:hidden; }
-  .col + .col { border-left:2px solid #2a2e35; }
+  body.split #showjaLbl { display:none !important; }   /* the left column already shows the source language */
+  .col { display:flex; flex-direction:column; justify-content:flex-end; padding:3vh 3vw var(--bottom); overflow:hidden; }
+  .col + .col { border-left:2px solid var(--line); }
   .col h3 { margin:0 0 auto; font-size:14px; letter-spacing:.15em; color:var(--dim); font-weight:400; }
   .col .hist p { margin:0 0 .5em; color:var(--dim); font-size:calc(var(--fs)*.45); line-height:1.3; }
-  .col .cur { font-size:calc(var(--fs)*.72); line-height:1.3; font-weight:600; min-height:2.6em;
+  .col .cur { font-size:calc(var(--fs)*.72); line-height:1.3; font-weight:600; height:calc(1.3em * 4);
     border-left:5px solid var(--accent); padding-left:.5em; }
-  .col .cur .prov { color:#b9bdc4; font-weight:400; }
-  .notice { margin-top:8px; padding:8px 10px; border-radius:6px; font-size:14px; color:#f0f0f0; }
-  .notice.err { background:#4a1714; border-left:4px solid #e53935; }
-  .notice.warn { background:#3d3210; border-left:4px solid #f0b400; }
-  .notice.info { background:#14283d; border-left:4px solid #4a90d9; }
-  .notice .ja { display:block; margin-top:3px; color:#d0d3d8; }
-  .notice .x { float:right; padding:0 8px; background:transparent; font-size:16px; }
-  .notice .act { margin-top:6px; padding:4px 10px; background:#2f5f8f; }
-  #help table { border-collapse:collapse; margin-top:6px; font-size:13px; }
-  #help td { border-top:1px solid #333; padding:5px 8px; vertical-align:top; }
-  #help td.lv { white-space:nowrap; }
+  .col .cur .prov { color:var(--prov); font-weight:400; }
+  .notice { margin-top:8px; padding:8px 10px; border-radius:6px; font-size:14px; color:var(--n-fg); }
+  .notice.err { background:var(--n-err); border-left:4px solid #e53935; }
+  .notice.warn { background:var(--n-warn); border-left:4px solid #f0b400; }
+  .notice.info { background:var(--n-info); border-left:4px solid #4a90d9; }
+  .notice .ja { display:block; margin-top:3px; color:var(--n-ja); }
+  .notice .x { float:right; padding:0 8px; background:transparent; color:var(--n-fg); font-size:16px; }
+  .notice .act { margin-top:6px; padding:4px 10px; background:#2f5f8f; color:#fff; }
+  #helpwrap { position:relative; }
+  #helpmenu { position:absolute; z-index:30; top:calc(100% + 4px); left:0; min-width:300px; padding:6px;
+    background:var(--menu); border:1px solid var(--border); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+  #helpmenu[hidden] { display:none; }
+  #helpmenu button { display:block; width:100%; text-align:left; background:transparent; padding:8px 10px; white-space:nowrap; }
+  #helpmenu button:hover, #helpmenu button:focus { background:var(--btn); }
+  #helpmenu .copy { margin-top:4px; padding:8px 10px 4px; border-top:1px solid var(--border); color:var(--hint); font-size:12px; }
+  #about { background:var(--panel); color:var(--fg); border:1px solid var(--border); border-radius:10px; padding:20px 26px; min-width:320px; font-size:15px; }
+  #about::backdrop { background:rgba(0,0,0,.6); }
+  #about h2 { margin:0 0 6px; font-size:20px; } #about p { margin:0 0 10px; line-height:1.5; }
+  #about .copy { color:var(--dim); font-size:13px; } #about form { text-align:right; margin:0; }
+  #row4 { align-items:flex-start; }
+  #row4 details[open] { flex:1 1 600px; }
+  #row4 summary { padding:6px 0; }
+
+  /* ---------- iPad / touch version ---------- */
+  html, body { -webkit-text-size-adjust:100%; touch-action:manipulation; }   /* no double-tap zoom */
+  #controls { font-size:16px; }
+  select, input, textarea, button { font-size:16px; }   /* under 16px the iPad zooms in when a field is touched */
+  button, select { min-height:44px; }                   /* Apple's minimum touch size */
+  button { padding:10px 16px; }
+  #controls input[type=password], #controls input[type=number] { min-height:40px; }
+  #controls input[type=checkbox] { width:22px; height:22px; }
+  #controls input[type=range] { width:170px; }
+  #helpmenu button { min-height:48px; }
+  #exitfs { padding:12px 18px; font-size:17px; }
+  /* Not available on iPad: Zoom/system audio capture and separate Left/Right windows */
+  #srcLbl, #popL, #popR { display:none !important; }
 </style>
 </head>
 <body>
 <div id="controls">
+  <!-- Line 1: provider and key -->
   <div class="row">
     <label>Provider
       <select id="prov">
         <option value="soniox">Soniox (text, ~US$0.18/h)</option>
         <option value="openai">OpenAI Realtime-Translate (~US$2/h)</option>
       </select></label>
+    <label>API key <input id="key" type="password" placeholder="paste key here"></label>
+    <button id="forget" title="Delete the stored key from this browser">🗑 Forget key</button>
+    <div id="helpwrap">
+      <button id="helpbtn" aria-haspopup="true" aria-expanded="false">❓ Help ▾</button>
+      <div id="helpmenu" role="menu" hidden>
+        <button role="menuitem" id="mTrouble">🛠 Troubleshooting / トラブルシューティング</button>
+        <button role="menuitem" id="mAbout">ℹ About / このアプリについて</button>
+        <div class="copy" id="mCopy"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Line 2: audio, languages, start/stop, status -->
+  <div class="row">
+    <label id="srcLbl">Audio source
+      <select id="src">
+        <option value="mic">Microphone</option>
+      </select></label>
+    <label>Microphone <select id="mic"></select></label>
     <label>From <select id="from"></select></label>
     <label>To <select id="to"></select></label>
     <label><input id="two" type="checkbox"> Two-way (Soniox only)</label>
-    <label>API key <input id="key" type="password" placeholder="paste key here"></label>
-    <button id="forget" title="Delete the stored key from this browser">🗑 Forget key</button>
-    <label>Audio source
-      <select id="src">
-        <option value="mic">Microphone</option>
-        <option value="sys">Zoom / system audio</option>
-        <option value="both">Both (microphone + Zoom)</option>
-      </select></label>
-    <label>Microphone <select id="mic"></select></label>
     <button id="start" class="primary">▶ Start</button>
     <button id="stop" class="stop" disabled>■ Stop</button>
-    <div id="status"><div id="meter"><div></div></div><div id="dot"></div><span id="stxt">Stopped / 停止中</span></div>
   </div>
+  <!-- Line 3: display settings -->
   <div class="row">
+    <label id="speedLbl" title="How long Soniox waits in a pause before it closes a sentence. Faster = translation appears sooner, but sentences are cut more often at pauses. Applies when you press Start.">Speed
+      <select id="speed">
+        <option value="800">Fast (0.8 s)</option>
+        <option value="1500">Normal (1.5 s)</option>
+        <option value="2500">Slow speaker (2.5 s)</option>
+      </select></label>
     <label>Font size <input id="size" type="range" min="28" max="110" value="56"></label>
-    <label>History lines <input id="hist" type="number" min="0" max="8" value="3" style="width:46px"></label>
-    <label><input id="showja" type="checkbox"> Show source language</label>
+    <label>History lines <input id="hist" type="number" min="0" max="10" value="3" style="width:46px"></label>
+    <label id="showjaLbl"><input id="showja" type="checkbox"> Show source language</label>
     <label>Layout <select id="layout"><option value="single">Single (translation only)</option><option value="split">Side by side (From | To)</option></select></label>
+    <button id="theme" title="Switch between dark and light colours (all windows)"></button>
   </div>
+  <!-- Line 4: windows and export -->
   <div class="row">
     <button id="popL" title="Open the left column (From language) in its own window">⧉ Left window</button>
     <button id="popR" title="Open the right column (To language) in its own window">⧉ Right window</button>
     <button id="full">⛶ Full screen</button>
     <button id="export">⬇ Export transcript</button>
+    <span class="sep"></span>
+    <div id="status" title="Sound level and connection status"><div id="meter"><div></div></div><div id="dot"></div><span id="stxt">Stopped / 停止中</span></div>
   </div>
+  <!-- Line 5: glossary -->
+  <div class="row" id="row4">
   <details id="gl">
     <summary>Glossary and seminar topic (Soniox only — write: source term = target term)</summary>
     <div class="row" style="margin-top:6px">
@@ -114,12 +191,16 @@
 クントゥル・ワシ = Kuntur Wasi"></textarea>
     <div class="hint">Changes take effect when you press Start.</div>
   </details>
-  <details id="help">
-    <summary>Troubleshooting / トラブルシューティング</summary>
-    <table id="helptable"></table>
-  </details>
+  </div>
   <div id="notices"></div>
 </div>
+<dialog id="about">
+  <h2>Seminar Interpreter</h2>
+  <p id="aboutVer"></p>
+  <p>Live speech translation for seminars (Soniox / OpenAI).<br><span lang="ja">セミナー用リアルタイム音声翻訳</span></p>
+  <p class="copy" id="aboutCopy"></p>
+  <form method="dialog"><button class="primary">OK</button></form>
+</dialog>
 <button id="exitfs">✕ Exit full screen / 全画面を終了</button>
 <div id="label"></div>
 <div id="split">
@@ -134,6 +215,24 @@
 
 <script>
 const $ = id => document.getElementById(id);
+const APP_VERSION = "1.2 (iPad)";     // change here when releasing a new version
+const COPYRIGHT = "© 2026 DS-Lab";
+// Latin text uses Segoe UI; Japanese characters fall through to BIZ UDPGothic (much clearer than the narrow "Yu Gothic UI").
+const FONT_STACK = `"Segoe UI","Helvetica Neue",Arial,"BIZ UDPGothic","Meiryo","Hiragino Sans","Noto Sans JP",sans-serif`;
+const FONT_LINK = `<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">`;
+
+// ---------- light / dark theme (main page + Left/Right/Troubleshooting windows, also in full screen) ----------
+const THEME_VARS = $("themevars").textContent;   // same colour definitions in every window
+let theme = (() => { try { return localStorage.getItem("si_theme") || "dark"; } catch(e) { return "dark"; } })();
+let helpWin = null;
+function applyTheme(){
+  document.documentElement.dataset.theme = theme;
+  $("theme").textContent = theme === "dark" ? "☀ Light mode" : "🌙 Dark mode";
+  for (const w of [pops.L, pops.R, helpWin]) {
+    try { if (w && !w.closed) w.document.documentElement.dataset.theme = theme; } catch(e) {}
+  }
+}
+$("theme").onclick = () => { theme = theme === "dark" ? "light" : "dark"; try { localStorage.setItem("si_theme", theme); } catch(e) {} applyTheme(); };
 const CFG = {
   openai: { url:"wss://api.openai.com/v1/realtime/translations?model=gpt-realtime-translate", rate:24000 },
   soniox: { url:"wss://stt-rt.soniox.com/transcribe-websocket", rate:16000, model:"stt-rt-v5" }
@@ -179,7 +278,10 @@ $("hist").value = load("si_hist") || 3;
 $("showja").checked = load("si_ja") === "1";
 $("topic").value = load("si_topic") || "";
 $("glossary").value = load("si_gloss") || "";
-function loadKey(){ $("key").value = load("si_key_" + $("prov").value) || ""; $("gl").style.display = $("prov").value==="soniox" ? "" : "none"; applyUI(); }
+function loadKey(){ $("key").value = load("si_key_" + $("prov").value) || ""; const sx = $("prov").value==="soniox"; $("gl").style.display = sx ? "" : "none"; $("speedLbl").style.display = sx ? "" : "none"; applyUI(); }
+// Speed = how long Soniox waits in a pause before closing a sentence (max_endpoint_delay_ms). Soniox only; used at Start.
+$("speed").value = ["800","1500","2500"].includes(load("si_speed")) ? load("si_speed") : "1500";
+$("speed").onchange = () => save("si_speed", $("speed").value);
 $("prov").onchange = () => { save("si_prov",$("prov").value); loadKey(); };
 function applyUI(){
   document.documentElement.style.setProperty("--fs", $("size").value + "px");
@@ -243,27 +345,116 @@ const MSG = {
                         ja:"予期しないエラー：{msg}。バックアップ（Maestraなど）を使用し、このツールの管理者に連絡してください。プロバイダーのAPIが変更された可能性があります。" },
 };
 const active = {};
+// Notices the user closed with ×. They stay hidden until the problem goes away (clearN) or Start is pressed again.
+const dismissed = new Set();
 function fill(t, v){ return t.replace(/\{(\w+)\}/g, (_,k) => (v && v[k] != null) ? v[k] : ""); }
-function notify(id, vars, action){ if (!MSG[id]) return; active[id] = { vars, action }; renderNotices(); }
-function clearN(id){ if (active[id]) { delete active[id]; renderNotices(); } }
-function clearAllN(except){ for (const k of Object.keys(active)) if (!(except||[]).includes(k)) delete active[k]; renderNotices(); }
+function notify(id, vars, action){
+  if (!MSG[id] || dismissed.has(id)) return;
+  const prev = active[id];
+  if (prev && JSON.stringify(prev.vars) === JSON.stringify(vars) && !prev.action === !action) return;   // already shown
+  active[id] = { vars, action }; renderNotices();
+}
+function clearN(id){ dismissed.delete(id); if (active[id]) { delete active[id]; renderNotices(); } }
+function dismissN(id){ dismissed.add(id); if (active[id]) { delete active[id]; renderNotices(); } }
+function clearAllN(except){ dismissed.clear(); for (const k of Object.keys(active)) if (!(except||[]).includes(k)) delete active[k]; renderNotices(); }
 function renderNotices(){
   const box = $("notices"); box.innerHTML = "";
   for (const [id, a] of Object.entries(active)) {
     const m = MSG[id], d = document.createElement("div");
     d.className = "notice " + m.lv;
     d.innerHTML = `<button class="x" title="Dismiss">×</button>${esc(fill(m.en,a.vars))}<span class="ja">${esc(fill(m.ja,a.vars))}</span>`;
-    d.querySelector(".x").onclick = () => clearN(id);
+    d.querySelector(".x").onclick = () => dismissN(id);
     if (a.action) { const b = document.createElement("button"); b.className = "act"; b.textContent = a.action.label; b.onclick = () => { a.action.run(); clearN(id); }; d.appendChild(b); }
     box.appendChild(d);
   }
   applyUI();
 }
-(function buildHelp(){
+// Troubleshooting guide: problem / solution for every notice (EN, JA). Same keys and order as MSG.
+const HELP = {
+  nokey:   ["No API key entered.", "APIキーが入力されていません。",
+            "Paste the API key of the selected Provider in the 'API key' box.", "選択したプロバイダーのAPIキーを「API key」欄に貼り付けてください。"],
+  key:     ["API key rejected.", "APIキーが拒否されました。",
+            "Copy the key again and check that the selected Provider is correct.", "キーを再度コピーし、選択したプロバイダーが正しいか確認してください。"],
+  credit:  ["No credit left.", "残高がありません。",
+            "Top up the balance in the provider's console (Billing).", "プロバイダーのコンソール（Billing）でチャージしてください。"],
+  model_switched: ["The model in use is no longer available; the app switched to a newer one automatically.", "使用中のモデルが利用できなくなり、新しいモデルに自動で切り替わりました。",
+            "Check that the translation quality is still good.", "翻訳の品質を確認してください。"],
+  model_newer: ["A newer model is available.", "新しいモデルが利用可能です。",
+            "Test it outside class before switching (button in the notice).", "授業外で試してから切り替えてください（お知らせ内のボタン）。"],
+  model_error: ["The provider does not accept the selected model.", "プロバイダーが選択したモデルを受け付けません。",
+            "Inform the person who maintains this tool.", "このツールの管理者に連絡してください。"],
+  mic_blocked: ["Microphone access is blocked.", "マイクへのアクセスがブロックされています。",
+            "Click the icon at the left of the address bar, allow the microphone, and press Start again.", "アドレスバー左のアイコンをクリックしてマイクを許可し、もう一度Startを押してください。"],
+  mic_missing: ["Microphone not found.", "マイクが見つかりません。",
+            "Check the cable, then choose it again in the Microphone list.", "ケーブルを確認し、Microphoneの一覧から選び直してください。"],
+  silent:  ["No sound for more than 10 seconds.", "10秒以上音声がありません。",
+            "Check that the microphone is on, not muted, and the volume is up.", "マイクの電源、ミュート、音量を確認してください。"],
+  offline: ["No internet connection.", "インターネットに接続されていません。",
+            "Check the Wi-Fi or network cable. Translation resumes automatically when the connection returns.", "Wi-Fiまたはケーブルを確認してください。接続が戻ると自動で再開します。"],
+  unstable:["The connection dropped several times in the last 5 minutes.", "過去5分間に接続が何度も切れました。",
+            "The network may be unstable. Use a wired connection if possible.", "ネットワークが不安定な可能性があります。可能であれば有線接続を使用してください。"],
+  no_trans:["Sound is coming in, but no translation has appeared for 30 seconds.", "音声は入っていますが、30秒間翻訳が表示されていません。",
+            "Check the From setting: it must match the spoken language.", "From（話されている言語）の設定を確認してください。"],
+  sys_noaudio: ["Zoom audio was not shared.", "Zoomの音声が共有されていません。",
+            "Press Start again, choose 'Entire screen', and tick 'Share system audio'.", "もう一度Startを押し、「画面全体」を選んで「システム音声も共有する」にチェックを入れてください。"],
+  sys_cancel:  ["Screen sharing was cancelled or stopped, so Zoom audio is not being captured.", "画面共有がキャンセルまたは停止されたため、Zoomの音声は取得されていません。",
+            "Press Start again and share the screen with system audio.", "もう一度Startを押し、システム音声付きで画面を共有してください。"],
+  both_echo:   ["With both sources, the same sentence may be translated twice.", "両方の音源を使うと、同じ文が二重に翻訳されることがあります。",
+            "This happens when classroom speakers play Zoom audio near the microphone. Use a hand-held or lapel microphone, or switch the source.", "教室のスピーカーからZoomの音声がマイクの近くで流れると起こります。ハンドマイクやピンマイクを使うか、音源を切り替えてください。"],
+  sys_unsupported: ["This device or browser cannot capture Zoom/system audio (e.g. iPad).", "この端末またはブラウザ（iPadなど）ではZoom／システム音声を取得できません。",
+            "Use 'Microphone', or use the Windows PC with Chrome.", "「Microphone」を使うか、WindowsのPCでChromeを使用してください。"],
+  same_lang: ["From and To are the same language.", "FromとToが同じ言語です。",
+            "Choose two different languages.", "異なる言語を選んでください。"],
+  popup:   ["The browser blocked the new window.", "ブラウザが新しいウィンドウをブロックしました。",
+            "Allow pop-ups for this page (icon at the right of the address bar) and try again.", "このページのポップアップを許可し（アドレスバー右のアイコン）、もう一度お試しください。"],
+  rate:    ["Too many requests.", "リクエストが多すぎます。",
+            "Nothing to do: the app waits one minute and reconnects automatically.", "操作は不要です。1分待ってから自動で再接続します。"],
+  cant_connect: ["Cannot connect to the provider.", "プロバイダーに接続できません。",
+            "Check the API key, the credit balance, and the internet connection.", "APIキー、残高、インターネット接続を確認してください。"],
+  twoway_openai:["Two-way mode is only available with Soniox.", "双方向モードはSonioxでのみ利用できます。",
+            "Change the Provider or untick Two-way.", "プロバイダーを変更するか、Two-wayのチェックを外してください。"],
+  unknown: ["Unexpected error.", "予期しないエラーが発生しました。",
+            "Use the backup (e.g. Maestra) and inform the person who maintains this tool. The provider's API may have changed.", "バックアップ（Maestraなど）を使用し、このツールの管理者に連絡してください。プロバイダーのAPIが変更された可能性があります。"],
+};
+// Troubleshooting guide: opens in its own window so it does not cover the translation.
+function openHelp(){
+  const w = window.open("", "si_help", "width=1000,height=760");
+  if (!w) { notify("popup"); return; }
   const L = { err:"🔴", warn:"🟡", info:"🔵" };
-  $("helptable").innerHTML = Object.values(MSG).map(m =>
-    `<tr><td class="lv">${L[m.lv]}</td><td>${esc(fill(m.en,{m1:"vX",m2:"vY",msg:"…"}))}</td><td>${esc(fill(m.ja,{m1:"vX",m2:"vY",msg:"…"}))}</td></tr>`).join("");
-})();
+  const rows = Object.entries(MSG).filter(([id]) => HELP[id]).map(([id, m]) => { const [pe, pj, se, sj] = HELP[id];
+    return `<tbody><tr class="p"><td class="lv" rowspan="2">${L[m.lv]}</td><td>${esc(pe)}</td><td lang="ja">${esc(pj)}</td></tr>
+      <tr class="s"><td><span class="k">→</span>${esc(se)}</td><td lang="ja"><span class="k">→</span>${esc(sj)}</td></tr></tbody>`; }).join("");
+  w.document.open();
+  w.document.write(`<!DOCTYPE html><html lang="en" data-theme="${theme}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Troubleshooting — Seminar Interpreter</title>${FONT_LINK}<style>${THEME_VARS}</style><style>
+    html,body{margin:0;background:var(--bg);color:var(--fg);font-family:${FONT_STACK}}
+    body{padding:20px 24px} h1{font-size:20px;font-weight:600;margin:0 0 4px} p{color:var(--dim);margin:0 0 16px;font-size:14px}
+    table{border-collapse:collapse;width:100%;font-size:16px;line-height:1.5}
+    th{text-align:left;font-weight:400;color:var(--dim);font-size:13px;padding:0 12px 6px}
+    td{padding:4px 12px;vertical-align:top;width:49%} td.lv{white-space:nowrap;width:1%;padding-top:12px}
+    tbody{border-top:1px solid var(--line)} tbody:nth-of-type(even){background:var(--zebra)}
+    tr.p td{padding-top:12px;font-weight:700;color:var(--strong)} tr.s td{padding-bottom:12px;color:var(--ctl)}
+    .k{color:var(--ok);font-weight:700;margin-right:.4em}
+    </style></head><body>
+    <h1>Troubleshooting / トラブルシューティング</h1>
+    <p>🔴 error / エラー · 🟡 warning / 注意 · 🔵 information / お知らせ　—　<b style="color:var(--strong)">bold</b> = problem / 問題 · <span class="k">→</span> = solution / 解決方法</p>
+    <table><thead><tr><th></th><th>English</th><th>日本語</th></tr></thead>${rows}</table>
+    <p style="margin-top:16px">Seminar Interpreter ${APP_VERSION} · ${COPYRIGHT}</p></body></html>`);
+  w.document.close(); w.focus(); helpWin = w;
+}
+// ---------- Help menu ----------
+function helpMenu(open){ $("helpmenu").hidden = !open; $("helpbtn").setAttribute("aria-expanded", open ? "true" : "false"); }
+$("helpbtn").onclick = e => { e.stopPropagation(); helpMenu($("helpmenu").hidden); };
+document.addEventListener("click", e => { if (!$("helpwrap").contains(e.target)) helpMenu(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") helpMenu(false); });
+$("mTrouble").onclick = () => { helpMenu(false); openHelp(); };
+$("mAbout").onclick = () => {
+  helpMenu(false); const d = $("about");
+  if (d.showModal) d.showModal(); else alert(`Seminar Interpreter ${APP_VERSION}\n${COPYRIGHT}`);
+};
+$("mCopy").textContent = COPYRIGHT;
+$("aboutVer").textContent = `Version ${APP_VERSION} / バージョン ${APP_VERSION}`;
+$("aboutCopy").textContent = COPYRIGHT + ". All rights reserved.";
 function classify(code, msg){
   const t = `${code||""} ${msg||""}`.toLowerCase();
   if (/401|unauthor|invalid.?api.?key|api key|authenticat/.test(t)) return "key";
@@ -286,15 +477,44 @@ $("mic").onchange = () => save("si_mic",$("mic").value);
 
 // ---------- subtitles ----------
 function esc(s){ return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+const lastN = (arr, n) => n > 0 ? arr.slice(-n) : [];   // slice(-0) would return the whole array
+// Split a line that is too long. Cuts after a comma (CJK) or at a space; the separator space is dropped, nothing else is lost.
+function splitLong(text, ja, maxc){
+  let cut = ja ? Math.max(text.lastIndexOf("、"), text.lastIndexOf("，")) : text.lastIndexOf(" ", maxc - 40);
+  if (cut < 10) { cut = maxc - 10; return [text.slice(0, cut), text.slice(cut)]; }
+  return ja ? [text.slice(0, cut + 1), text.slice(cut + 1)] : [text.slice(0, cut), text.slice(cut + 1)];
+}
+// A finished sentence stays on the big "current" line until new speech arrives,
+// and in any case for at least MIN_SHOW_MS, so the last words can be read before it moves to the history.
+const MIN_SHOW_MS = 2500;
+let done = "", doneAt = 0, doneTimer = null;
+function curHTML(doneTxt, cur, prov){
+  const live = esc(cur) + (prov ? `<span class="prov">${esc(prov)}</span>` : "");
+  return `<div class="in">${doneTxt ? esc(doneTxt) + (live ? "<br>" + live : "") : live}</div>`;
+}
 function render(){
   const n = +$("hist").value;
-  $("history").innerHTML = history.slice(-n).map(t=>`<p>${esc(t)}</p>`).join("");
-  $("current").innerHTML = esc(current) + (provisional ? `<span class="prov">${esc(provisional)}</span>` : "");
+  $("history").innerHTML = lastN(history, n).map(t=>`<p>${esc(t)}</p>`).join("");
+  $("current").innerHTML = curHTML(done, current, provisional);
   $("source").firstChild.textContent = (jaLine + jaProv).slice(-120);
+}
+function commitDone(){
+  clearTimeout(doneTimer); doneTimer = null;
+  if (done) { history.push(done); if (history.length > 50) history.shift(); }
+  done = ""; render();
+}
+function touchDone(){   // new text has started: move the finished sentence to the history once it was shown long enough
+  if (!done || doneTimer) return;
+  const left = MIN_SHOW_MS - (Date.now() - doneAt);
+  if (left <= 0) commitDone(); else doneTimer = setTimeout(commitDone, left);
 }
 function finalize(){
   const t = current.trim();
-  if (t) { history.push(t); if (history.length > 50) history.shift(); log.push(`[${new Date().toLocaleTimeString()}] ${t}`); }
+  if (t) {
+    if (done) commitDone();
+    done = t; doneAt = Date.now();
+    log.push(`[${new Date().toLocaleTimeString()}] ${t}`);
+  }
   current = ""; render();
 }
 const OPEN_END = /[、，,]\s*$/;
@@ -306,25 +526,24 @@ function onDelta(d){
   const ja = cjk(TWO ? curOut : TGT), maxc = ja ? 90 : MAX_CHARS, minc = ja ? 25 : 60;
   if (/[.!?。！？]["')\]」』]?\s*$/.test(current) && current.length > minc) { finalize(); return; }
   if (current.length > maxc) {
-    let cut = ja ? Math.max(current.lastIndexOf("、"), current.lastIndexOf("，")) : current.lastIndexOf(" ", maxc - 40);
-    if (cut < 10) cut = maxc - 10;
-    const rest = current.slice(cut+1); current = current.slice(0, ja ? cut+1 : cut); finalize(); current = rest;
+    const [head, rest] = splitLong(current, ja, maxc); current = head; finalize(); current = rest;
   }
+  if (current || provisional) touchDone();
   render();
 }
 
 // ---------- side-by-side panels ----------
 var panels = {};
 var pops = { L:null, R:null };
-const newP = () => ({ lines:[], cur:"", prov:"", timer:null });
+const newP = () => ({ lines:[], cur:"", prov:"", timer:null, done:"", doneAt:0, doneTimer:null });
 function resetPanels(){ panels = {}; panels[SRC] = newP(); panels[TGT] = newP(); pRender(); }
 function pRender(){
   const n = +$("hist").value, inMain = document.body.classList.contains("split");
   for (const [side, lang] of [["L", SRC], ["R", TGT]]) {
     const P = panels[lang]; if (!P) continue;
     const title = LANGS[lang] ? LANGS[lang].title : lang;
-    const hist = P.lines.slice(-n).map(t=>`<p>${esc(t)}</p>`).join("");
-    const cur = esc(P.cur) + (P.prov ? `<span class="prov">${esc(P.prov)}</span>` : "");
+    const hist = lastN(P.lines, n).map(t=>`<p>${esc(t)}</p>`).join("");
+    const cur = curHTML(P.done, P.cur, P.prov);
     if (inMain) {
       const col = $("col" + side);
       col.querySelector("h3").textContent = title;
@@ -346,26 +565,39 @@ function openPop(side){
   if (!w) { notify("popup"); return; }
   const lang = side === "L" ? SRC : TGT, title = LANGS[lang] ? LANGS[lang].title : lang;
   w.document.open();
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} — Seminar Interpreter</title><style>
-    :root{--fs:56px} html,body{margin:0;height:100%;background:#0b0d10;color:#f5f5f0;
-    font-family:"Segoe UI","Helvetica Neue",Arial,"Yu Gothic UI","Meiryo","Hiragino Sans",sans-serif}
-    body{display:flex;flex-direction:column;justify-content:flex-end;padding:3vh 4vw 6vh;box-sizing:border-box}
-    h3{position:absolute;top:12px;left:4vw;margin:0;font-size:14px;letter-spacing:.15em;color:#8a8f98;font-weight:400}
-    #hist p{margin:0 0 .5em;color:#8a8f98;font-size:calc(var(--fs)*.6);line-height:1.3}
-    #cur{font-size:var(--fs);line-height:1.3;font-weight:600;min-height:2.6em;border-left:6px solid #ffd34d;padding-left:.5em}
-    #cur .prov{color:#b9bdc4;font-weight:400}
-    #fs,#ex{position:fixed;top:calc(8px + env(safe-area-inset-top));right:12px;padding:6px 12px;border:0;border-radius:6px;background:rgba(46,51,59,.9);color:#fff;cursor:pointer;font-size:15px;transition:opacity .3s}
-    #ex{display:none} body.isfs #fs{display:none} body.isfs #ex{display:block;opacity:0;pointer-events:none} body.isfs.show #ex{opacity:1;pointer-events:auto}
+  w.document.write(`<!DOCTYPE html><html data-theme="${theme}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} — Seminar Interpreter</title>${FONT_LINK}<style>${THEME_VARS}</style><style>
+    :root{--fs:56px} html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font-family:${FONT_STACK}}
+    body{display:flex;flex-direction:column;justify-content:flex-end;padding:3vh 4vw calc(14vh + env(safe-area-inset-bottom));box-sizing:border-box}
+    h3{position:absolute;top:12px;left:4vw;margin:0;font-size:14px;letter-spacing:.15em;color:var(--dim);font-weight:400}
+    #hist p{margin:0 0 .5em;color:var(--dim);font-size:calc(var(--fs)*.6);line-height:1.3}
+    #cur{font-size:var(--fs);line-height:1.3;font-weight:600;height:calc(1.3em * 4);flex:none;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;border-left:6px solid var(--accent);padding-left:.5em}
+    #hist p:last-child{font-weight:600;color:var(--hist-last)}
+    #cur .prov{color:var(--prov);font-weight:400}
+    #fs,#ex{position:fixed;top:calc(8px + env(safe-area-inset-top));right:12px;padding:6px 12px;border:0;border-radius:6px;background:var(--float);color:var(--btn-fg);cursor:pointer;font-size:15px;transition:opacity .3s}
+    #ex{display:none;z-index:10} body.isfs #fs{display:none} body.isfs #ex{display:block;opacity:.35} body.isfs.show #ex, body.isfs #ex:hover{opacity:1}
+    #tip{position:fixed;bottom:10px;right:14px;font-size:13px;color:var(--dim);opacity:0;transition:opacity .3s;pointer-events:none}
+    body.isfs.show #tip{opacity:1}
     </style></head><body><h3>${title}</h3>
-    <button id="fs" onclick="var e=document.documentElement;(e.requestFullscreen||e.webkitRequestFullscreen).call(e)">⛶ Full screen</button>
-    <button id="ex" onclick="(document.exitFullscreen||document.webkitExitFullscreen).call(document)">✕ Exit full screen / 全画面を終了</button>
+    <button id="fs" onclick="toggleFs()" title="Double-click anywhere also works">⛶ Full screen</button>
+    <button id="ex" onclick="toggleFs()">✕ Exit full screen / 全画面を終了</button>
+    <div id="tip">Esc · double-click / ダブルクリック</div>
     <div id="hist"></div><div id="cur"></div>
     <script>
       var t=null; function fsOn(){return !!(document.fullscreenElement||document.webkitFullscreenElement)}
+      function toggleFs(){
+        try {
+          if (fsOn()) (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+          else { var e=document.documentElement; (e.requestFullscreen||e.webkitRequestFullscreen).call(e); }
+        } catch(err) {}
+      }
       function upd(){document.body.classList.toggle("isfs",fsOn()); show();}
       function show(){ if(!fsOn())return; document.body.classList.add("show"); clearTimeout(t); t=setTimeout(function(){document.body.classList.remove("show")},3000); }
       document.addEventListener("fullscreenchange",upd); document.addEventListener("webkitfullscreenchange",upd);
       ["mousemove","touchstart","click"].forEach(function(ev){document.addEventListener(ev,show,{passive:true})});
+      document.addEventListener("dblclick", function(ev){ if (ev.target.tagName !== "BUTTON") toggleFs(); });
+      document.addEventListener("keydown", function(ev){ if (ev.key === "Escape" && fsOn()) toggleFs(); });
+      upd();
     <\/script>
     </body></html>`);
   w.document.close();
@@ -375,9 +607,21 @@ $("popL").onclick = () => openPop("L");
 $("popR").onclick = () => openPop("R");
 window.addEventListener("beforeunload", () => { for (const k of ["L","R"]) try { pops[k] && pops[k].close(); } catch(e){} });
 function pSoft(lang){ const P = panels[lang]; if (P && !unfinished(P.cur, lang)) pFinal(lang); }
+// Same "keep the finished sentence visible" logic as the single layout, per column.
+function pCommit(P){
+  clearTimeout(P.doneTimer); P.doneTimer = null;
+  if (P.done) { P.lines.push(P.done); if (P.lines.length > 50) P.lines.shift(); }
+  P.done = ""; pRender();
+}
+function pTouch(lang){
+  const P = panels[lang]; if (!P || !P.done || P.doneTimer) return;
+  const left = MIN_SHOW_MS - (Date.now() - P.doneAt);
+  if (left <= 0) pCommit(P); else P.doneTimer = setTimeout(() => pCommit(P), left);
+}
 function pFinal(lang){
   const P = panels[lang]; if (!P) return;
-  if (P.cur.trim()) { P.lines.push(P.cur.trim()); if (P.lines.length > 50) P.lines.shift(); }
+  const t = P.cur.trim();
+  if (t) { if (P.done) pCommit(P); P.done = t; P.doneAt = Date.now(); }
   P.cur = ""; pRender();
 }
 function pAppend(lang, text){
@@ -387,10 +631,9 @@ function pAppend(lang, text){
   const ja = cjk(lang), maxc = ja ? 90 : MAX_CHARS, minc = ja ? 25 : 60;
   if (/[.!?。！？]["')\]」』]?\s*$/.test(P.cur) && P.cur.length > minc) { pFinal(lang); return; }
   if (P.cur.length > maxc) {
-    let cut = ja ? Math.max(P.cur.lastIndexOf("、"), P.cur.lastIndexOf("，")) : P.cur.lastIndexOf(" ", maxc - 40);
-    if (cut < 10) cut = maxc - 10;
-    const rest = P.cur.slice(cut+1); P.cur = P.cur.slice(0, ja ? cut+1 : cut); pFinal(lang); P.cur = rest;
+    const [head, rest] = splitLong(P.cur, ja, maxc); P.cur = head; pFinal(lang); P.cur = rest;
   }
+  if (P.cur || P.prov) pTouch(lang);
   pRender();
 }
 panelsReady = true; resetPanels();
@@ -436,37 +679,40 @@ function connect(){
   opened = false;
   const key = $("key").value.trim();
   status("Connecting… / 接続中…", "#f0b400");
+  let sock;
   if (prov === "openai") {
-    ws = new WebSocket(CFG.openai.url, ["realtime", "openai-insecure-api-key." + key]);
-    ws.onopen = () => {
-      opened = true; failCount = 0; clearN("cant_connect");
-      ws.send(JSON.stringify({ type:"session.update", session:{ audio:{
+    sock = ws = new WebSocket(CFG.openai.url, ["realtime", "openai-insecure-api-key." + key]);
+    sock.onopen = () => {
+      sock.send(JSON.stringify({ type:"session.update", session:{ audio:{
         output:{ language: TGT },
         input:{ transcription:{ model:"gpt-realtime-whisper" }, noise_reduction:{ type:"near_field" } } }}}));
+      opened = true; failCount = 0; clearN("cant_connect");
+      flushPending();   // audio recorded while (re)connecting
       status("Translating (OpenAI) / 翻訳中", "#4caf50");
     };
-    ws.onmessage = e => {
+    sock.onmessage = e => {
       let ev; try { ev = JSON.parse(e.data); } catch(_) { return; }
       if (ev.type === "session.output_transcript.delta") { onDelta(ev.delta || ""); pAppend(TGT, ev.delta || ""); }
       else if (ev.type === "session.input_transcript.delta") { pAppend(SRC, ev.delta || ""); jaLine += ev.delta || ""; jaLog += ev.delta || ""; jaLine = jaLine.slice(-200); render(); }
       else if (ev.type === "error") handleError(ev.error?.code || ev.error?.type, ev.error?.message);
     };
   } else {
-    ws = new WebSocket(CFG.soniox.url);
-    ws.binaryType = "arraybuffer";
-    ws.onopen = () => {
+    sock = ws = new WebSocket(CFG.soniox.url);
+    sock.binaryType = "arraybuffer";
+    sock.onopen = () => {
       const cfg = {
         api_key: key, model: sonioxModel,
         audio_format: "pcm_s16le", sample_rate: CFG.soniox.rate, num_channels: 1,
-        language_hints: TWO ? [SRC, TGT] : [SRC], enable_endpoint_detection: true, max_endpoint_delay_ms: 1500,
+        language_hints: TWO ? [SRC, TGT] : [SRC], enable_endpoint_detection: true, max_endpoint_delay_ms: +$("speed").value || 1500,
         translation: TWO ? { type:"two_way", language_a:SRC, language_b:TGT } : { type:"one_way", target_language: TGT }
       };
       const c = sonioxContext(); if (c) cfg.context = c;
+      sock.send(JSON.stringify(cfg));
       opened = true; failCount = 0; clearN("cant_connect");
-      ws.send(JSON.stringify(cfg));
+      flushPending();   // audio recorded while (re)connecting
       status("Translating (Soniox · " + sonioxModel + ") / 翻訳中", "#4caf50");
     };
-    ws.onmessage = e => {
+    sock.onmessage = e => {
       let r; try { r = JSON.parse(e.data); } catch(_) { return; }
       if (r.error_code) { handleError(r.error_code, r.error_message); return; }
       let provEN = "", provJA = ""; const pp = { [SRC]:"", [TGT]:"" };
@@ -484,13 +730,13 @@ function connect(){
           if (t.is_final) { jaLine = (jaLine + t.text).slice(-200); jaLog += t.text; } else provJA += t.text;
         }
       }
-      provisional = provEN; jaProv = provJA; render();
-      for (const l of [SRC, TGT]) if (panels[l]) panels[l].prov = pp[l] || ""; pRender();
-      if (r.finished && running) ws.close();
+      provisional = provEN; jaProv = provJA; if (provisional) touchDone(); render();
+      for (const l of [SRC, TGT]) if (panels[l]) { panels[l].prov = pp[l] || ""; if (panels[l].prov) pTouch(l); } pRender();
+      if (r.finished) sock.close();   // while running: reconnect (onclose); after Stop: finishStop()
     };
   }
-  ws.onclose = ev => {
-    if (!running) return;
+  sock.onclose = ev => {
+    if (sock !== ws || !running) return;
     if ([1008, 4001, 4003].includes(ev.code)) { handleError(ev.code, ev.reason || "unauthorized"); return; }
     if (!opened && navigator.onLine) { if (++failCount >= 3) { notify("cant_connect"); stop(); return; } }
     const now = Date.now(); reconnects = reconnects.filter(t => now - t < 300000); reconnects.push(now);
@@ -507,6 +753,14 @@ function toPCM16(f32){
   for (let i=0;i<f32.length;i++){ const s=Math.max(-1,Math.min(1,f32[i])); i16[i]= s<0? s*0x8000 : s*0x7fff; }
   return i16;
 }
+// Audio chunks (100 ms each) recorded while the connection is not ready; sent as soon as it opens.
+let pending = [];
+const MAX_PENDING = 100;   // 10 seconds
+function sendPCM(pcm){
+  if (prov === "openai") ws.send(JSON.stringify({ type:"session.input_audio_buffer.append", audio: b64(pcm) }));
+  else ws.send(pcm.buffer);
+}
+function flushPending(){ while (pending.length && ws && ws.readyState === 1) sendPCM(pending.shift()); }
 function b64(i16){
   const bytes = new Uint8Array(i16.buffer); let bin = "";
   for (let i=0;i<bytes.length;i+=0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i,i+0x8000));
@@ -593,6 +847,7 @@ function resample(data, inRate, outRate){
   return out;
 }
 async function start(){
+  finishStop();   // if the previous session is still finishing, end it now
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!ctx || ctx.state === "closed") ctx = new AC();     // created inside the click: required on iPad
   try { ctx.resume(); } catch(e){}
@@ -608,10 +863,10 @@ async function start(){
   $("start").disabled = true; status("Checking… / 確認中…", "#f0b400");
   if (!navigator.onLine) notify("offline");
   if (!(await preflight(key))) { $("start").disabled = false; status("Stopped / 停止中", "#666"); return; }
-  running = true; $("stop").disabled = false; $("prov").disabled = true; $("from").disabled = $("to").disabled = $("two").disabled = true; $("src").disabled = true;
+  running = true; $("stop").disabled = false; $("prov").disabled = true; $("from").disabled = $("to").disabled = $("two").disabled = true; $("src").disabled = true; $("speed").disabled = true;
   const rate = CFG[prov].rate, chunk = rate / 10;   // 100 ms
   streams = await openSources(rate);
-  const inRate = ctx.sampleRate; rsBuf = new Float32Array(0); buf = new Float32Array(0);
+  const inRate = ctx.sampleRate; rsBuf = new Float32Array(0); buf = new Float32Array(0); pending = [];
   // ScriptProcessor works when the page is opened as a local file (AudioWorklet does not).
   node = ctx.createScriptProcessor(4096, 1, 1);
   const mute = ctx.createGain(); mute.gain.value = 0;
@@ -626,9 +881,8 @@ async function start(){
     const nb = new Float32Array(buf.length + data.length); nb.set(buf); nb.set(data, buf.length); buf = nb;
     while (buf.length >= chunk) {
       const pcm = toPCM16(buf.slice(0, chunk)); buf = buf.slice(chunk);
-      if (!ws || ws.readyState !== 1) continue;
-      if (prov === "openai") ws.send(JSON.stringify({ type:"session.input_audio_buffer.append", audio: b64(pcm) }));
-      else ws.send(pcm.buffer);
+      if (ws && ws.readyState === 1 && opened) { flushPending(); sendPCM(pcm); }
+      else { pending.push(pcm); if (pending.length > MAX_PENDING) pending.shift(); }   // keep the last 10 s while reconnecting
     }
   };
   clearInterval(watchdog);
@@ -642,21 +896,45 @@ async function start(){
   }, 2000);
   connect();
 }
+// After Stop, Soniox still sends the last words it was working on. We wait for them (max 4 s) before closing.
+let finishing = null;
+function flushDisplay(){
+  if (provisional) { current += provisional; provisional = ""; }
+  jaProv = "";
+  finalize(); for (const l of Object.keys(panels)) { panels[l].cur += panels[l].prov; panels[l].prov = ""; pFinal(l); }
+}
+function finishStop(){
+  if (!finishing) return;
+  const f = finishing; finishing = null; clearTimeout(f.timer);
+  f.sock.onclose = null; f.sock.onmessage = null;
+  try { f.sock.close(); } catch(e){}
+  flushDisplay();
+  if (!running) status("Stopped / 停止中", "#666");
+}
 function stop(){
+  if (finishing) return;   // already stopping
   running = false; clearInterval(watchdog);
-  $("start").disabled = false; $("stop").disabled = true; $("prov").disabled = false; $("from").disabled = $("to").disabled = $("two").disabled = false; $("src").disabled = false;
-  try { if (ws && ws.readyState === 1 && prov === "soniox") ws.send(""); } catch(e){}
-  try { ws && ws.close(); } catch(e){}
+  $("start").disabled = false; $("stop").disabled = true; $("prov").disabled = false; $("from").disabled = $("to").disabled = $("two").disabled = false; $("src").disabled = false; $("speed").disabled = false;
   try { streams.forEach(st => st.getTracks().forEach(t => t.stop())); streams = []; } catch(e){}
   try { node && (node.onaudioprocess = null); node && node.disconnect(); ctx && ctx.state !== "closed" && ctx.close(); } catch(e){}
-  if (provisional) { current += provisional; provisional = ""; }
-  finalize(); for (const l of Object.keys(panels)) { panels[l].cur += panels[l].prov; panels[l].prov = ""; pFinal(l); }
+  pending = [];
   clearN("silent"); clearN("no_trans");
-  status("Stopped / 停止中", "#666"); $("meter").firstChild.style.width = "0";
+  $("meter").firstChild.style.width = "0";
+  const sock = ws;
+  if (sock && sock.readyState === 1 && opened && prov === "soniox") {
+    try { sock.send(""); } catch(e){}   // empty message = "no more audio"; Soniox answers with the last tokens and "finished"
+    finishing = { sock, timer: setTimeout(finishStop, 4000) };
+    sock.onclose = finishStop;
+    status("Finishing… / 終了処理中…", "#f0b400");
+  } else {
+    try { sock && sock.close(); } catch(e){}
+    flushDisplay();
+    status("Stopped / 停止中", "#666");
+  }
 }
 $("forget").onclick = () => { try { localStorage.removeItem("si_key_" + $("prov").value); } catch(e){} $("key").value = ""; status("Key deleted from this browser / このブラウザからキーを削除しました", "#666"); };
 $("start").onclick = () => start().catch(e => { if (!e.handled) notify("unknown", { msg: e.message }); stop(); });
-$("src").value = load("si_srcsel") || "mic";
+$("src").value = "mic";   // iPad: microphone only
 $("stop").onclick = stop;
 
 // ---------- full screen / export ----------
@@ -680,6 +958,7 @@ function exitFull(){
 $("exitfs").onclick = (e) => { e.stopPropagation(); exitFull(); };
 for (const ev of ["mousemove","touchstart","click"]) document.addEventListener(ev, flashExit, { passive:true });
 document.addEventListener("keydown", e => { if (e.key === "Escape") exitFull(); });
+document.addEventListener("dblclick", e => { if (document.body.classList.contains("full") && e.target.tagName !== "BUTTON") exitFull(); });
 function onFs(){ if (!fsEl()) document.body.classList.remove("full", "showexit"); setTimeout(applyUI, 300); }
 document.addEventListener("fullscreenchange", onFs); document.addEventListener("webkitfullscreenchange", onFs);
 window.addEventListener("orientationchange", () => setTimeout(applyUI, 300));
@@ -690,7 +969,7 @@ $("export").onclick = () => {
   a.download = "seminar-transcript-" + new Date().toISOString().slice(0,10) + ".txt"; a.click();
 };
 
-listMics(); loadKey();
+listMics(); loadKey(); applyTheme();
 </script>
 </body>
 </html>
