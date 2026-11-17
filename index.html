@@ -17,7 +17,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
-<script>/* apply the saved theme before the page is drawn (no flash) */ try { document.documentElement.dataset.theme = localStorage.getItem("si_theme") || "dark"; } catch(e) {}</script>
+<script>/* apply the saved theme before the page is drawn (no flash) */ try { document.documentElement.dataset.theme = localStorage.getItem("si_theme") || "dark"; } catch(e) {}
+/* Device detection: iphone / ipad / other. iPadOS reports itself as a Mac, so a Mac with a touch screen = iPad.
+   For testing on a PC, add ?device=iphone or ?device=ipad to the address. */
+(function(){
+  const ua = navigator.userAgent, forced = (location.search.match(/[?&]device=(iphone|ipad|other)\b/) || [])[1];
+  const dev = forced || (/iPhone|iPod/.test(ua) ? "iphone" : (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) ? "ipad" : "other");
+  document.documentElement.dataset.device = dev;
+})();</script>
 <style id="themevars">
   /* Colour themes. Copied as-is into the Left / Right / Troubleshooting windows, so all windows share them. */
   :root { color-scheme:dark;
@@ -120,10 +127,36 @@
   #exitfs { padding:12px 18px; font-size:17px; }
   /* Not available on iPad: Zoom/system audio capture and separate Left/Right windows */
   #srcLbl, #popL, #popR { display:none !important; }
+  #topic { max-width:100%; }
+
+  /* ---------- iPhone (small screen) ---------- */
+  #mbar { display:none; }
+  :root[data-device="iphone"] { --bottom: calc(6vh + env(safe-area-inset-bottom)); }
+  /* Compact bar always visible: ⚙ Settings · Start · Stop · status. The other rows open with ⚙. */
+  :root[data-device="iphone"] #mbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  :root[data-device="iphone"] #mbar #status { margin-left:auto; }
+  :root[data-device="iphone"] #mbar #meter { width:50px; }
+  :root[data-device="iphone"] #controls > .row { display:none; margin-top:12px; }
+  :root[data-device="iphone"] body.showset #controls > .row { display:flex; }
+  :root[data-device="iphone"] body.showset #controls { max-height:75vh; max-height:75dvh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  :root[data-device="iphone"] #controls input[type=password] { width:min(200px, 52vw); }
+  :root[data-device="iphone"] #helpmenu { min-width:0; width:max-content; max-width:calc(100vw - 32px); }
+  :root[data-device="iphone"] #helpmenu button { white-space:normal; }
+  :root[data-device="iphone"] #label { left:4vw; font-size:12px; }
+  /* Side by side: one above the other when the iPhone is upright, side by side when it is turned */
+  :root[data-device="iphone"] #split { grid-template-columns:1fr; grid-template-rows:1fr 1fr; }
+  :root[data-device="iphone"] .col { padding:2vh 4vw var(--bottom); }
+  :root[data-device="iphone"] .col + .col { border-left:0; border-top:2px solid var(--line); }
+  @media (orientation: landscape) {
+    :root[data-device="iphone"] #split { grid-template-columns:1fr 1fr; grid-template-rows:none; }
+    :root[data-device="iphone"] .col + .col { border-top:0; border-left:2px solid var(--line); }
+  }
 </style>
 </head>
 <body>
 <div id="controls">
+  <!-- iPhone only: compact bar (Start, Stop and status are moved here by the script) -->
+  <div id="mbar"><button id="setbtn" aria-expanded="false">⚙ Settings</button></div>
   <!-- Line 1: provider and key -->
   <div class="row">
     <label>Provider
@@ -215,7 +248,23 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = "1.2 (iPad)";     // change here when releasing a new version
+const APP_VERSION = "1.3 (iPad/iPhone)";   // change here when releasing a new version
+// ---------- device (detected in <head>) ----------
+const DEVICE = document.documentElement.dataset.device || "other";
+const IPHONE = DEVICE === "iphone";
+const DEVICE_NAME = { iphone:"iPhone", ipad:"iPad", other:"computer / コンピューター" }[DEVICE];
+if (IPHONE) {
+  for (const id of ["start", "stop", "status"]) $("mbar").appendChild($(id));   // always visible, even with Settings closed
+  $("size").min = 18;
+  $("full").textContent = "⛶ Hide menus";   // the iPhone has no real full screen for web pages; this hides the menus
+}
+function showSettings(open){
+  document.body.classList.toggle("showset", open);
+  $("setbtn").setAttribute("aria-expanded", open ? "true" : "false");
+  $("setbtn").textContent = open ? "⚙ Settings ▴" : "⚙ Settings";
+  applyUI();
+}
+$("setbtn").onclick = () => showSettings(!document.body.classList.contains("showset"));
 const COPYRIGHT = "© 2026 DS-Lab";
 // Latin text uses Segoe UI; Japanese characters fall through to BIZ UDPGothic (much clearer than the narrow "Yu Gothic UI").
 const FONT_STACK = `"Segoe UI","Helvetica Neue",Arial,"BIZ UDPGothic","Meiryo","Hiragino Sans","Noto Sans JP",sans-serif`;
@@ -273,8 +322,8 @@ function setDir(){
 }
 for (const id of ["from","to","two"]) $(id).onchange = () => { save("si_from",$("from").value); save("si_to",$("to").value); save("si_two",$("two").checked?"1":"0"); setDir(); };
 setDir();
-$("size").value = load("si_size") || 56;
-$("hist").value = load("si_hist") || 3;
+$("size").value = load("si_size") || (IPHONE ? 30 : 56);
+$("hist").value = load("si_hist") || (IPHONE ? 2 : 3);
 $("showja").checked = load("si_ja") === "1";
 $("topic").value = load("si_topic") || "";
 $("glossary").value = load("si_gloss") || "";
@@ -453,7 +502,7 @@ $("mAbout").onclick = () => {
   if (d.showModal) d.showModal(); else alert(`Seminar Interpreter ${APP_VERSION}\n${COPYRIGHT}`);
 };
 $("mCopy").textContent = COPYRIGHT;
-$("aboutVer").textContent = `Version ${APP_VERSION} / バージョン ${APP_VERSION}`;
+$("aboutVer").textContent = `Version ${APP_VERSION} / バージョン ${APP_VERSION} · Running on / 使用中の端末: ${DEVICE_NAME}`;
 $("aboutCopy").textContent = COPYRIGHT + ". All rights reserved.";
 function classify(code, msg){
   const t = `${code||""} ${msg||""}`.toLowerCase();
@@ -637,7 +686,7 @@ function pAppend(lang, text){
   pRender();
 }
 panelsReady = true; resetPanels();
-$("layout").value = load("si_layout") || "split";
+$("layout").value = load("si_layout") || (IPHONE ? "single" : "split");
 function setLayout(){ document.body.classList.toggle("split", $("layout").value === "split"); pRender(); }
 $("layout").onchange = () => { save("si_layout",$("layout").value); setLayout(); };
 setLayout();
@@ -846,6 +895,21 @@ function resample(data, inRate, outRate){
   rsBuf = all.slice(Math.floor(n * ratio));
   return out;
 }
+// ---------- keep the screen on while translating ----------
+// If the iPhone/iPad locks its screen or another app is opened, iOS stops the microphone.
+// Screen Wake Lock (iOS 16.4+) keeps the screen on; iOS releases it when the app is hidden, so we ask again on return.
+let wakeLock = null;
+async function keepAwake(on){
+  try {
+    if (on) {
+      if ("wakeLock" in navigator && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      }
+    } else if (wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+  } catch(e) { /* not supported or refused: the screen may turn off by itself */ }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && running) keepAwake(true); });
 async function start(){
   finishStop();   // if the previous session is still finishing, end it now
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -863,6 +927,8 @@ async function start(){
   $("start").disabled = true; status("Checking… / 確認中…", "#f0b400");
   if (!navigator.onLine) notify("offline");
   if (!(await preflight(key))) { $("start").disabled = false; status("Stopped / 停止中", "#666"); return; }
+  if (IPHONE) showSettings(false);   // give the subtitles the whole screen
+  keepAwake(true);
   running = true; $("stop").disabled = false; $("prov").disabled = true; $("from").disabled = $("to").disabled = $("two").disabled = true; $("src").disabled = true; $("speed").disabled = true;
   const rate = CFG[prov].rate, chunk = rate / 10;   // 100 ms
   streams = await openSources(rate);
@@ -913,7 +979,7 @@ function finishStop(){
 }
 function stop(){
   if (finishing) return;   // already stopping
-  running = false; clearInterval(watchdog);
+  running = false; clearInterval(watchdog); keepAwake(false);
   $("start").disabled = false; $("stop").disabled = true; $("prov").disabled = false; $("from").disabled = $("to").disabled = $("two").disabled = false; $("src").disabled = false; $("speed").disabled = false;
   try { streams.forEach(st => st.getTracks().forEach(t => t.stop())); streams = []; } catch(e){}
   try { node && (node.onaudioprocess = null); node && node.disconnect(); ctx && ctx.state !== "closed" && ctx.close(); } catch(e){}
