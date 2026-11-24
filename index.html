@@ -40,7 +40,7 @@
 </style>
 <style>
   /* --bottom: free space under the subtitles (also used by the Left/Right windows) */
-  :root { --bottom: calc(14vh + env(safe-area-inset-bottom)); --fs: 56px; }
+  :root { --bottom: calc(4vh + env(safe-area-inset-bottom)); --fs: 56px; }
   * { box-sizing: border-box; }
   html,body { margin:0; height:100%; height:100dvh; overflow:hidden; background:var(--bg); color:var(--fg);
     font-family: "Segoe UI", "Helvetica Neue", Arial, "BIZ UDPGothic", "Meiryo", "Hiragino Sans", "Noto Sans JP", sans-serif; }
@@ -63,24 +63,35 @@
   #glossary { width:100%; height:90px; margin-top:6px; font-family:monospace; }
   .hint { color:var(--hint); font-size:12px; }
   #stage { position:absolute; top:var(--top,60px); left:0; right:0; bottom:0;
-    display:flex; flex-direction:column; justify-content:flex-end; padding:3vh 5vw var(--bottom); }
+    display:flex; flex-direction:column; justify-content:flex-end; padding:3vh 5vw var(--bottom); overflow:hidden; }
   #history p { margin:0 0 .5em; color:var(--dim); font-size:calc(var(--fs)*.6); line-height:1.25; }
-  /* The big line has a fixed height (4 lines) so it never grows or shrinks; text sits at the bottom,
-     and if a long text does not fit, its oldest (top) part is hidden. */
+  /* History: shows the last "History lines" entries; scroll up (swipe) to read older ones.
+     While the reader is scrolled up, auto-scroll pauses, the box grows to the free space and a "Live" button appears. */
+  .hwrap { position:relative; display:flex; flex-direction:column; flex:0 1 auto; min-height:0; }
+  .hwrap.paused { flex:1 1 0; }
+  .hbox { flex:0 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+  .hwrap.paused .hbox { flex:1 1 0; }
+  button.live { position:absolute; right:10px; bottom:10px; z-index:5; background:var(--accent); color:#000; font-weight:600;
+    box-shadow:0 4px 14px rgba(0,0,0,.35); }
+  button.live[hidden] { display:none; }
+  /* The big line has a fixed height (3 lines) so it never grows or shrinks; text sits at the bottom.
+     If a text does not fit, its oldest part moves to the history (see fitMain / pRender). */
   #current, .col .cur { display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; flex:none; }
-  #current { font-size:var(--fs); line-height:1.25; font-weight:600; height:calc(1.25em * 4);
+  #current { font-size:var(--fs); line-height:1.25; font-weight:600; height:calc(1.25em * 3);
     border-left:6px solid var(--accent); padding-left:.5em; }
   #history p:last-child, .col .hist p:last-child { font-weight:600; color:var(--hist-last); }   /* most recent line */
   #current .prov { color:var(--prov); font-weight:400; }
   #source { margin-top:.6em; font-size:calc(var(--fs)*.38); color:var(--src); min-height:1.3em;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; direction:rtl; text-align:left; }
   #source span { direction:ltr; unicode-bidi:bidi-override; }
-  #label { position:absolute; top:calc(var(--top,60px) + 12px); left:5vw; font-size:14px; letter-spacing:.15em; color:var(--dim); }
-  body.full #controls { display:none; } body.full { --top:env(safe-area-inset-top); }
-  #exitfs { position:fixed; z-index:20; top:calc(12px + env(safe-area-inset-top)); right:calc(14px + env(safe-area-inset-right));
+  /* in the normal flow (not floating), so the history can never slide under it */
+  #label { flex:none; margin:0 0 auto; padding-bottom:8px; font-size:14px; letter-spacing:.15em; color:var(--dim); }
+  body.full #controls, body.hidemenu #controls { display:none; } body.full, body.hidemenu { --top:env(safe-area-inset-top); }
+  #exitfs, #showmenu { position:fixed; z-index:20; top:calc(12px + env(safe-area-inset-top)); right:calc(14px + env(safe-area-inset-right));
     display:none; opacity:.35; transition:opacity .3s; background:var(--float); color:var(--btn-fg); font-size:15px; }
-  body.full #exitfs { display:block; }
-  body.full.showexit #exitfs, body.full #exitfs:hover { opacity:1; }
+  body.full #exitfs, body.hidemenu:not(.full) #showmenu { display:block; }
+  body.showexit #exitfs, body.showexit #showmenu, #exitfs:hover, #showmenu:hover { opacity:1; }
   #split { position:absolute; top:var(--top,60px); left:0; right:0; bottom:0; display:none;
     grid-template-columns:1fr 1fr; gap:0; }
   body.split #stage, body.split #label { display:none; } body.split #split { display:grid; }
@@ -89,7 +100,7 @@
   .col + .col { border-left:2px solid var(--line); }
   .col h3 { margin:0 0 auto; font-size:14px; letter-spacing:.15em; color:var(--dim); font-weight:400; }
   .col .hist p { margin:0 0 .5em; color:var(--dim); font-size:calc(var(--fs)*.45); line-height:1.3; }
-  .col .cur { font-size:calc(var(--fs)*.72); line-height:1.3; font-weight:600; height:calc(1.3em * 4);
+  .col .cur { font-size:calc(var(--fs)*.72); line-height:1.3; font-weight:600; height:calc(1.3em * 3);
     border-left:5px solid var(--accent); padding-left:.5em; }
   .col .cur .prov { color:var(--prov); font-weight:400; }
   .notice { margin-top:8px; padding:8px 10px; border-radius:6px; font-size:14px; color:var(--n-fg); }
@@ -124,14 +135,15 @@
   #controls input[type=checkbox] { width:22px; height:22px; }
   #controls input[type=range] { width:170px; }
   #helpmenu button { min-height:48px; }
-  #exitfs { padding:12px 18px; font-size:17px; }
+  #exitfs, #showmenu { padding:12px 18px; font-size:17px; }
   /* Not available on iPad: Zoom/system audio capture and separate Left/Right windows */
   #srcLbl, #popL, #popR { display:none !important; }
   #topic { max-width:100%; }
 
   /* ---------- iPhone (small screen) ---------- */
   #mbar { display:none; }
-  :root[data-device="iphone"] { --bottom: calc(6vh + env(safe-area-inset-bottom)); }
+  :root[data-device="iphone"] { --bottom: calc(4vh + env(safe-area-inset-bottom)); }
+  :root[data-device="iphone"] #hidemenu { display:none; }   /* the iPhone already has "⛶ Hide menus" */
   /* Compact bar always visible: ⚙ Settings · Start · Stop · status. The other rows open with ⚙. */
   :root[data-device="iphone"] #mbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
   :root[data-device="iphone"] #mbar #status { margin-left:auto; }
@@ -142,7 +154,7 @@
   :root[data-device="iphone"] #controls input[type=password] { width:min(200px, 52vw); }
   :root[data-device="iphone"] #helpmenu { min-width:0; width:max-content; max-width:calc(100vw - 32px); }
   :root[data-device="iphone"] #helpmenu button { white-space:normal; }
-  :root[data-device="iphone"] #label { left:4vw; font-size:12px; }
+  :root[data-device="iphone"] #label { font-size:12px; }
   /* Side by side: one above the other when the iPhone is upright, side by side when it is turned */
   :root[data-device="iphone"] #split { grid-template-columns:1fr; grid-template-rows:1fr 1fr; }
   :root[data-device="iphone"] .col { padding:2vh 4vw var(--bottom); }
@@ -169,6 +181,7 @@
     <div id="helpwrap">
       <button id="helpbtn" aria-haspopup="true" aria-expanded="false">❓ Help ▾</button>
       <div id="helpmenu" role="menu" hidden>
+        <button role="menuitem" id="mGuide">📖 Quick guide / クイックガイド</button>
         <button role="menuitem" id="mTrouble">🛠 Troubleshooting / トラブルシューティング</button>
         <button role="menuitem" id="mAbout">ℹ About / このアプリについて</button>
         <div class="copy" id="mCopy"></div>
@@ -206,6 +219,7 @@
   <div class="row">
     <button id="popL" title="Open the left column (From language) in its own window">⧉ Left window</button>
     <button id="popR" title="Open the right column (To language) in its own window">⧉ Right window</button>
+    <button id="hidemenu" title="Hide these menus without going full screen. Show them again with the ▼ Menu button (top right).">▲ Hide menu</button>
     <button id="full">⛶ Full screen</button>
     <button id="export">⬇ Export transcript</button>
     <span class="sep"></span>
@@ -235,20 +249,21 @@
   <form method="dialog"><button class="primary">OK</button></form>
 </dialog>
 <button id="exitfs">✕ Exit full screen / 全画面を終了</button>
-<div id="label"></div>
+<button id="showmenu" title="Show the menus again">▼ Menu / メニュー</button>
 <div id="split">
-  <div class="col" id="colL"><h3></h3><div class="hist"></div><div class="cur"></div></div>
-  <div class="col" id="colR"><h3></h3><div class="hist"></div><div class="cur"></div></div>
+  <div class="col" id="colL"><h3></h3><div class="hwrap"><div class="hist hbox"></div></div><div class="cur"></div></div>
+  <div class="col" id="colR"><h3></h3><div class="hwrap"><div class="hist hbox"></div></div><div class="cur"></div></div>
 </div>
 <div id="stage">
-  <div id="history"></div>
+  <div id="label"></div>
+  <div class="hwrap"><div id="history" class="hbox"></div></div>
   <div id="current"></div>
   <div id="source"><span></span></div>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
-const APP_VERSION = "1.3 (iPad/iPhone)";   // change here when releasing a new version
+const APP_VERSION = "1.4 (iPad/iPhone)";   // change here when releasing a new version
 // ---------- device (detected in <head>) ----------
 const DEVICE = document.documentElement.dataset.device || "other";
 const IPHONE = DEVICE === "iphone";
@@ -416,6 +431,10 @@ function renderNotices(){
     if (a.action) { const b = document.createElement("button"); b.className = "act"; b.textContent = a.action.label; b.onclick = () => { a.action.run(); clearN(id); }; d.appendChild(b); }
     box.appendChild(d);
   }
+  // Notices live in the menu area: if it is hidden, bring it back for errors and warnings.
+  if (document.body.classList.contains("hidemenu") && Object.keys(active).some(id => MSG[id].lv !== "info")) {
+    document.body.classList.remove("hidemenu", "showexit");
+  }
   applyUI();
 }
 // Troubleshooting guide: problem / solution for every notice (EN, JA). Same keys and order as MSG.
@@ -491,11 +510,101 @@ function openHelp(){
     <p style="margin-top:16px">Seminar Interpreter ${APP_VERSION} · ${COPYRIGHT}</p></body></html>`);
   w.document.close(); w.focus(); helpWin = w;
 }
+const guideDevice = () => document.documentElement.dataset.device === "iphone" ? "iphone" : "ipad";
+// Quick guide: how to use the app, in English and Japanese. Opens in the same window as Troubleshooting.
+// Each line: [device, English, Japanese]. device = "" (all), "pc", "ipad", "iphone", "touch" (iPad + iPhone), "big" (PC + iPad).
+const GUIDE = [
+  ["Getting started / はじめに", [
+    ["", "Choose the <b>Provider</b> and paste its <b>API key</b>. The key is saved on this device only. <b>🗑 Forget key</b> deletes it.",
+          "<b>Provider</b> を選び、その <b>API key</b> を貼り付けます。キーはこの端末にだけ保存されます。<b>🗑 Forget key</b> で削除できます。"],
+    ["", "<b>From</b> = the language spoken. <b>To</b> = the language of the translation. Tick <b>Two-way</b> if both languages will be spoken (Soniox only).",
+          "<b>From</b>＝話される言語、<b>To</b>＝翻訳する言語。両方の言語が話される場合は <b>Two-way</b> にチェックを入れます（Soniox のみ）。"],
+    ["", "Press <b>▶ Start</b> and allow the microphone. The green bar shows that sound is coming in.",
+          "<b>▶ Start</b> を押し、マイクを許可します。緑のバーは音声が入っていることを示します。"],
+    ["", "At the end, press <b>■ Stop</b>. <b>⬇ Export transcript</b> saves all the text as a file.",
+          "終わったら <b>■ Stop</b> を押します。<b>⬇ Export transcript</b> で全文をファイルに保存できます。"],
+  ]],
+  ["The text on screen / 画面の文字", [
+    ["", "The sentence being spoken is in large text, at most 3 lines. If it is longer, its beginning moves up to the history, so nothing is cut off.",
+          "話している文は大きな文字で、最大3行まで表示されます。それより長い場合は、文の始めが上の履歴に移るので、文字が切れることはありません。"],
+    ["", "<b>History lines</b>: how many earlier sentences are shown (0–10). <b>Font size</b>: size of the text.",
+          "<b>History lines</b>：表示する前の文の数（0〜10）。<b>Font size</b>：文字の大きさ。"],
+    ["", "<b>Show source language</b>: shows what was said, in small text, under the translation.",
+          "<b>Show source language</b>：話された原文を翻訳の下に小さく表示します。"],
+    ["", "<b>Layout → Side by side</b>: the original and the translation next to each other.",
+          "<b>Layout → Side by side</b>：原文と翻訳を並べて表示します。"],
+    ["iphone", "On the iPhone, Side by side puts the two languages one above the other when the iPhone is upright.",
+          "iPhone を縦向きにすると、Side by side では2つの言語が上下に並びます。"],
+    ["pc", "<b>⧉ Left window / ⧉ Right window</b>: each language in its own window, for a second screen or a projector.",
+          "<b>⧉ Left window / ⧉ Right window</b>：言語ごとに別のウィンドウで表示します（2台目の画面やプロジェクター用）。"],
+  ]],
+  ["Read earlier sentences / 前の文を読み返す", [
+    ["", "Scroll the grey text up to read back. It stops moving and a yellow <b>⬇ Live</b> button appears. The translation continues in the background.",
+          "灰色の文字を上にスクロールすると読み返せます。文字の動きが止まり、黄色の <b>⬇ Live</b> ボタンが表示されます。翻訳はその間も続いています。"],
+    ["", "Press <b>⬇ Live</b>, or scroll down to the end, to return to the live text.",
+          "<b>⬇ Live</b> を押すか、いちばん下までスクロールすると、リアルタイムの表示に戻ります。"],
+  ]],
+  ["Show only the text / 文字だけを表示する", [
+    ["pc", "<b>⛶ Full screen</b>: fills the screen. Press <b>Esc</b> to leave.",
+          "<b>⛶ Full screen</b>：全画面で表示します。<b>Esc</b> キーで終了します。"],
+    ["ipad", "<b>⛶ Full screen</b>: fills the screen. Tap the screen and press <b>✕ Exit full screen</b> to leave.",
+          "<b>⛶ Full screen</b>：全画面で表示します。終了するには画面をタップして <b>✕ Exit full screen</b> を押します。"],
+    ["big", "<b>▲ Hide menu</b>: hides the menus without full screen. Bring them back with <b>▼ Menu</b> (top right)" + "{esc}" + ".",
+          "<b>▲ Hide menu</b>：全画面にせずにメニューを隠します。右上の <b>▼ Menu</b>{escja}で戻ります。"],
+    ["iphone", "<b>⛶ Hide menus</b>: hides the menus. The menus are inside <b>⚙ Settings</b> and close by themselves when you press Start.",
+          "<b>⛶ Hide menus</b>：メニューを隠します。メニューは <b>⚙ Settings</b> の中にあり、Start を押すと自動で閉じます。"],
+    ["", "If an error or a warning appears, the menus come back by themselves.",
+          "エラーや注意のメッセージが出ると、メニューは自動で表示されます。"],
+  ]],
+  ["Better results / うまく使うために", [
+    ["", "<b>Speed</b>: how long a pause ends a sentence. Choose <i>Slow speaker</i> if the speaker makes long pauses.",
+          "<b>Speed</b>：どのくらいの間（ま）で文を区切るか。話す人が長い間を取る場合は <i>Slow speaker</i> を選びます。"],
+    ["", "<b>Glossary</b> (Soniox only): one term per line, <code>source term = target term</code>, and the seminar <b>Topic</b>. Changes apply at the next Start.",
+          "<b>用語集</b>（Soniox のみ）：1行に1語、<code>原語 = 訳語</code> の形で書き、セミナーの <b>Topic</b> も入力します。変更は次の Start から反映されます。"],
+    ["pc", "<b>Audio source → Zoom / system audio</b>: after Start, choose <b>Entire screen</b> and tick <b>Share system audio</b>.",
+          "<b>Audio source → Zoom / system audio</b>：Start の後、<b>画面全体</b>を選び、<b>システム音声も共有する</b>にチェックを入れます。"],
+    ["touch", "Keep the app open and the screen on. If the device locks or you switch apps, iOS stops the microphone.",
+          "アプリを開いたまま、画面をつけたままにしてください。ロックしたり別のアプリに切り替えたりすると、iOS がマイクを止めます。"],
+    ["", "Put the microphone close to the speaker. A lapel microphone works best.",
+          "マイクは話す人の近くに置いてください。ピンマイクが最適です。"],
+  ]],
+];
+function openGuide(){
+  const w = window.open("", "si_help", "width=1000,height=760");
+  if (!w) { notify("popup"); return; }
+  const dev = guideDevice(), show = d => !d || d === dev || (d === "touch" && dev !== "pc") || (d === "big" && dev !== "iphone");
+  const escEn = dev === "pc" ? " or <b>Esc</b>" : "", escJa = dev === "pc" ? "または <b>Esc</b> キー" : "";
+  const body = GUIDE.map(([title, rows]) => {
+    const [te, tj] = title.split(" / ");
+    const trs = rows.filter(r => show(r[0])).map(([, en, ja]) =>
+      `<tr><td>${en.replace("{esc}", escEn)}</td><td lang="ja">${ja.replace("{escja}", escJa)}</td></tr>`).join("");
+    return `<tbody><tr class="h"><td>${te}</td><td lang="ja">${tj}</td></tr>${trs}</tbody>`;
+  }).join("");
+  w.document.open();
+  w.document.write(`<!DOCTYPE html><html lang="en" data-theme="${theme}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quick guide — Seminar Interpreter</title>${FONT_LINK}<style>${THEME_VARS}</style><style>
+    html,body{margin:0;background:var(--bg);color:var(--fg);font-family:${FONT_STACK}}
+    body{padding:20px 24px} h1{font-size:20px;font-weight:600;margin:0 0 4px} p{color:var(--dim);margin:0 0 16px;font-size:14px}
+    table{border-collapse:collapse;width:100%;font-size:16px;line-height:1.5}
+    td{padding:6px 12px;vertical-align:top;width:50%;color:var(--ctl)} b{color:var(--strong)}
+    tr.h td{padding-top:18px;font-weight:700;font-size:17px;color:var(--ok);border-bottom:1px solid var(--line)}
+    tbody tr:not(.h):nth-child(odd) td{background:var(--zebra)}
+    code{font-size:14px;background:var(--zebra);padding:0 4px;border-radius:3px}
+    @media (max-width:640px){ body{padding:14px} td{display:block;width:auto} tr.h td+td{padding-top:0} }
+    </style></head><body>
+    <h1>Quick guide / クイックガイド</h1>
+    <p>How to use Seminar Interpreter / 基本的な使い方</p>
+    <table>${body}</table>
+    <p style="margin-top:16px">For problems and messages, see <b>Help → Troubleshooting</b>. / 問題やメッセージについては <b>Help → Troubleshooting</b> をご覧ください。<br>
+    Seminar Interpreter ${APP_VERSION} · ${COPYRIGHT}</p></body></html>`);
+  w.document.close(); w.focus(); helpWin = w;
+}
 // ---------- Help menu ----------
 function helpMenu(open){ $("helpmenu").hidden = !open; $("helpbtn").setAttribute("aria-expanded", open ? "true" : "false"); }
 $("helpbtn").onclick = e => { e.stopPropagation(); helpMenu($("helpmenu").hidden); };
 document.addEventListener("click", e => { if (!$("helpwrap").contains(e.target)) helpMenu(false); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") helpMenu(false); });
+$("mGuide").onclick = () => { helpMenu(false); openGuide(); };
 $("mTrouble").onclick = () => { helpMenu(false); openHelp(); };
 $("mAbout").onclick = () => {
   helpMenu(false); const d = $("about");
@@ -541,15 +650,82 @@ function curHTML(doneTxt, cur, prov){
   const live = esc(cur) + (prov ? `<span class="prov">${esc(prov)}</span>` : "");
   return `<div class="in">${doneTxt ? esc(doneTxt) + (live ? "<br>" + live : "") : live}</div>`;
 }
+// ---------- scrollable history (main page, side-by-side columns and Left/Right windows) ----------
+const HIST_MAX = 200;   // entries kept for scrolling back
+function initHist(box){
+  if (box._init) return; box._init = true;
+  const btn = box.ownerDocument.createElement("button");
+  btn.className = "live"; btn.textContent = "⬇ Live / ライブに戻る"; btn.hidden = true;
+  btn.title = "Back to the live translation";
+  box.parentNode.appendChild(btn); box._btn = btn;
+  // Only scrolling done by the reader pauses or resumes; scrolling done by the app is ignored.
+  // (2.5 s window: on iPad/iPhone a swipe keeps scrolling by itself for a moment after the finger leaves.)
+  const mark = () => { box._user = Date.now(); };
+  for (const ev of ["wheel", "touchstart", "touchmove", "pointerdown"]) box.addEventListener(ev, mark, { passive:true });
+  box.addEventListener("scroll", () => {
+    const top = box.scrollTop, down = top > (box._lastTop || 0); box._lastTop = top;
+    if (Date.now() - (box._user || 0) > 2500) return;
+    const atBottom = box.scrollHeight - top - box.clientHeight < 6;
+    // Pause when the reader leaves the bottom; resume only when the reader scrolls DOWN to the bottom.
+    // (When the box grows on pausing, the browser may move it to the bottom by itself; that must not resume.)
+    if (!box._paused && !atBottom) setPaused(box, true);
+    else if (box._paused && atBottom && down) setPaused(box, false);
+  });
+  btn.onclick = e => { e.stopPropagation(); setPaused(box, false); };
+}
+function setPaused(box, p){
+  box._paused = p; box.parentNode.classList.toggle("paused", p); box._btn.hidden = !p;
+  if (p) { const st = box.scrollTop; box.style.height = ""; box.scrollTop = st; }   // grow to the free space, keep the place
+  else sizeHist(box);
+  box._lastTop = box.scrollTop;
+}
+// Normal (live) state: the box is exactly as tall as the last n entries and stays scrolled to the bottom.
+function sizeHist(box, n){
+  if (n == null) n = box._n; else box._n = n;
+  if (box._paused) return;
+  const ps = box.children; let h = 0;
+  // from the top of the n-th last entry to the end of the content (includes the last entry's bottom margin);
+  // height 0 first, so scrollHeight is the real content height even if the text just got smaller
+  if (n > 0 && ps.length) { box.style.height = "0px"; h = box.scrollHeight - ps[Math.max(0, ps.length - n)].offsetTop; }
+  box.style.height = h + "px"; box.scrollTop = box.scrollHeight;
+}
+function fillHist(box, lines, n){
+  initHist(box);
+  const sig = lines.length + "|" + (lines[lines.length - 1] || "");
+  if (box._sig !== sig) {   // rebuild only when the history changed (not on every word)
+    const keep = box._paused ? box.scrollTop : null;
+    box.innerHTML = lines.map(t => `<p>${esc(t)}</p>`).join(""); box._sig = sig;
+    if (keep != null) box.scrollTop = keep;
+  }
+  box.parentNode.style.display = n > 0 ? "" : "none";
+  if (n <= 0 && box._paused) setPaused(box, false);
+  sizeHist(box, n);
+}
+const overflows = el => !!(el && el.offsetHeight && el.firstElementChild && el.firstElementChild.offsetHeight > el.clientHeight + 2);
+let fitting = false;
 function render(){
   const n = +$("hist").value;
-  $("history").innerHTML = lastN(history, n).map(t=>`<p>${esc(t)}</p>`).join("");
+  fillHist($("history"), history, n);
   $("current").innerHTML = curHTML(done, current, provisional);
   $("source").firstChild.textContent = (jaLine + jaProv).slice(-120);
+  if (!fitting) { fitting = true; try { fitMain(); } finally { fitting = false; } }
+}
+// The big line holds 3 lines. If the text does not fit, the oldest part moves to the history
+// (first the finished sentence, then the beginning of the sentence in progress), so nothing is cut off.
+function fitMain(){
+  const el = $("current");
+  if (document.body.classList.contains("split")) return;
+  for (let i = 0; i < 4 && overflows(el); i++) {
+    if (done) commitDone();
+    else if (current.length > 50) {
+      const [head, rest] = splitLong(current, cjk(TWO ? curOut : TGT), current.length);
+      current = head; finalize(); current = rest; render();
+    } else break;
+  }
 }
 function commitDone(){
   clearTimeout(doneTimer); doneTimer = null;
-  if (done) { history.push(done); if (history.length > 50) history.shift(); }
+  if (done) { history.push(done); if (history.length > HIST_MAX) history.shift(); }
   done = ""; render();
 }
 function touchDone(){   // new text has started: move the finished sentence to the history once it was shown long enough
@@ -586,28 +762,53 @@ var panels = {};
 var pops = { L:null, R:null };
 const newP = () => ({ lines:[], cur:"", prov:"", timer:null, done:"", doneAt:0, doneTimer:null });
 function resetPanels(){ panels = {}; panels[SRC] = newP(); panels[TGT] = newP(); pRender(); }
-function pRender(){
+function pDraw(){
   const n = +$("hist").value, inMain = document.body.classList.contains("split");
   for (const [side, lang] of [["L", SRC], ["R", TGT]]) {
     const P = panels[lang]; if (!P) continue;
     const title = LANGS[lang] ? LANGS[lang].title : lang;
-    const hist = lastN(P.lines, n).map(t=>`<p>${esc(t)}</p>`).join("");
     const cur = curHTML(P.done, P.cur, P.prov);
     if (inMain) {
       const col = $("col" + side);
       col.querySelector("h3").textContent = title;
-      col.querySelector(".hist").innerHTML = hist; col.querySelector(".cur").innerHTML = cur;
+      fillHist(col.querySelector(".hist"), P.lines, n); col.querySelector(".cur").innerHTML = cur;
     }
     const w = pops[side];
     if (w && !w.closed) {
       try {
         w.document.documentElement.style.setProperty("--fs", $("size").value + "px");
         w.document.querySelector("h3").textContent = title; w.document.title = title + " — Seminar Interpreter";
-        w.document.getElementById("hist").innerHTML = hist;
+        fillHist(w.document.getElementById("hist"), P.lines, n);
         w.document.getElementById("cur").innerHTML = cur;
       } catch(e) {}
     }
   }
+}
+// Is the big line of this side too full in any place where it is visible (main columns or its own window)?
+function pOver(side){
+  const els = [];
+  if (document.body.classList.contains("split")) els.push($("col" + side).querySelector(".cur"));
+  const w = pops[side];
+  try { if (w && !w.closed) els.push(w.document.getElementById("cur")); } catch(e) {}
+  return els.some(overflows);
+}
+let pFitting = false;
+function pRender(){
+  pDraw();
+  if (pFitting) return;
+  pFitting = true;
+  try {   // same 3-line rule as fitMain, per column
+    for (const [side, lang] of [["L", SRC], ["R", TGT]]) {
+      const P = panels[lang]; if (!P) continue;
+      for (let i = 0; i < 4 && pOver(side); i++) {
+        if (P.done) pCommit(P);
+        else if (P.cur.length > 50) {
+          const [head, rest] = splitLong(P.cur, cjk(lang), P.cur.length);
+          P.cur = head; pFinal(lang); P.cur = rest; pDraw();
+        } else break;
+      }
+    }
+  } finally { pFitting = false; }
 }
 function openPop(side){
   const w = window.open("", "si_" + side, "width=1000,height=640");
@@ -617,10 +818,15 @@ function openPop(side){
   w.document.write(`<!DOCTYPE html><html data-theme="${theme}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title} — Seminar Interpreter</title>${FONT_LINK}<style>${THEME_VARS}</style><style>
     :root{--fs:56px} html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
     font-family:${FONT_STACK}}
-    body{display:flex;flex-direction:column;justify-content:flex-end;padding:3vh 4vw calc(14vh + env(safe-area-inset-bottom));box-sizing:border-box}
-    h3{position:absolute;top:12px;left:4vw;margin:0;font-size:14px;letter-spacing:.15em;color:var(--dim);font-weight:400}
+    body{display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;padding:12px 4vw calc(4vh + env(safe-area-inset-bottom));box-sizing:border-box}
+    h3{flex:none;margin:0 0 auto;padding-bottom:8px;font-size:14px;letter-spacing:.15em;color:var(--dim);font-weight:400}
+    .hwrap{position:relative;display:flex;flex-direction:column;flex:0 1 auto;min-height:0} .hwrap.paused{flex:1 1 0}
+    .hbox{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+    .hwrap.paused .hbox{flex:1 1 0}
+    .live{position:absolute;right:10px;bottom:10px;z-index:5;padding:7px 14px;border:0;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;background:var(--accent);color:#000;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+    .live[hidden]{display:none}
     #hist p{margin:0 0 .5em;color:var(--dim);font-size:calc(var(--fs)*.6);line-height:1.3}
-    #cur{font-size:var(--fs);line-height:1.3;font-weight:600;height:calc(1.3em * 4);flex:none;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;border-left:6px solid var(--accent);padding-left:.5em}
+    #cur{font-size:var(--fs);line-height:1.3;font-weight:600;height:calc(1.3em * 3);flex:none;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;border-left:6px solid var(--accent);padding-left:.5em}
     #hist p:last-child{font-weight:600;color:var(--hist-last)}
     #cur .prov{color:var(--prov);font-weight:400}
     #fs,#ex{position:fixed;top:calc(8px + env(safe-area-inset-top));right:12px;padding:6px 12px;border:0;border-radius:6px;background:var(--float);color:var(--btn-fg);cursor:pointer;font-size:15px;transition:opacity .3s}
@@ -631,7 +837,7 @@ function openPop(side){
     <button id="fs" onclick="toggleFs()" title="Double-click anywhere also works">⛶ Full screen</button>
     <button id="ex" onclick="toggleFs()">✕ Exit full screen / 全画面を終了</button>
     <div id="tip">Esc · double-click / ダブルクリック</div>
-    <div id="hist"></div><div id="cur"></div>
+    <div class="hwrap"><div id="hist" class="hbox"></div></div><div id="cur"></div>
     <script>
       var t=null; function fsOn(){return !!(document.fullscreenElement||document.webkitFullscreenElement)}
       function toggleFs(){
@@ -647,6 +853,7 @@ function openPop(side){
       document.addEventListener("dblclick", function(ev){ if (ev.target.tagName !== "BUTTON") toggleFs(); });
       document.addEventListener("keydown", function(ev){ if (ev.key === "Escape" && fsOn()) toggleFs(); });
       upd();
+      window.addEventListener("resize", function(){ try { opener && opener.pRender(); } catch(e) {} });
     <\/script>
     </body></html>`);
   w.document.close();
@@ -659,7 +866,7 @@ function pSoft(lang){ const P = panels[lang]; if (P && !unfinished(P.cur, lang))
 // Same "keep the finished sentence visible" logic as the single layout, per column.
 function pCommit(P){
   clearTimeout(P.doneTimer); P.doneTimer = null;
-  if (P.done) { P.lines.push(P.done); if (P.lines.length > 50) P.lines.shift(); }
+  if (P.done) { P.lines.push(P.done); if (P.lines.length > HIST_MAX) P.lines.shift(); }
   P.done = ""; pRender();
 }
 function pTouch(lang){
@@ -687,7 +894,7 @@ function pAppend(lang, text){
 }
 panelsReady = true; resetPanels();
 $("layout").value = load("si_layout") || (IPHONE ? "single" : "split");
-function setLayout(){ document.body.classList.toggle("split", $("layout").value === "split"); pRender(); }
+function setLayout(){ document.body.classList.toggle("split", $("layout").value === "split"); render(); pRender(); }
 $("layout").onchange = () => { save("si_layout",$("layout").value); setLayout(); };
 setLayout();
 
@@ -1011,9 +1218,16 @@ $("full").onclick = () => {
   try { (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch(e) {}
   setTimeout(() => { applyUI(); flashExit(); }, 300);
 };
+// Hide menu (iPad / computer): same screen as normal, without the menus and without going full screen.
+// (On the iPhone the "⛶ Hide menus" button already does this.)
+function hideMenu(){ helpMenu(false); document.body.classList.add("hidemenu"); applyUI(); flashExit(); }
+function showMenu(){ document.body.classList.remove("hidemenu", "showexit"); applyUI(); }
+$("hidemenu").onclick = hideMenu;
+$("showmenu").onclick = (e) => { e.stopPropagation(); showMenu(); };
 let exitTimer = null;
 function flashExit(){
-  if (!document.body.classList.contains("full")) return;
+  const b = document.body.classList;
+  if (!b.contains("full") && !b.contains("hidemenu")) return;
   document.body.classList.add("showexit"); clearTimeout(exitTimer);
   exitTimer = setTimeout(() => document.body.classList.remove("showexit"), 3000);
 }
@@ -1023,7 +1237,10 @@ function exitFull(){
 }
 $("exitfs").onclick = (e) => { e.stopPropagation(); exitFull(); };
 for (const ev of ["mousemove","touchstart","click"]) document.addEventListener(ev, flashExit, { passive:true });
-document.addEventListener("keydown", e => { if (e.key === "Escape") exitFull(); });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (document.body.classList.contains("full")) exitFull(); else if (document.body.classList.contains("hidemenu")) showMenu();
+});
 document.addEventListener("dblclick", e => { if (document.body.classList.contains("full") && e.target.tagName !== "BUTTON") exitFull(); });
 function onFs(){ if (!fsEl()) document.body.classList.remove("full", "showexit"); setTimeout(applyUI, 300); }
 document.addEventListener("fullscreenchange", onFs); document.addEventListener("webkitfullscreenchange", onFs);
@@ -1036,6 +1253,10 @@ $("export").onclick = () => {
 };
 
 listMics(); loadKey(); applyTheme();
+// Keep the subtitles just below the menu, also when the menu changes height by itself
+// (rotation, web font loaded, notices, glossary or iPhone Settings opened). Prevents text over the menu.
+try { new ResizeObserver(() => applyUI()).observe($("controls")); } catch(e) {}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(applyUI);
 </script>
 </body>
 </html>

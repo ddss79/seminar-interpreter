@@ -37,6 +37,12 @@ The app detects whether it is running on an iPhone or an iPad and adapts its lay
 - **No Left/Right windows.** Use *Layout → Side by side* instead.
 - Bigger buttons and fields for touch. Fields use a 16px font so the device doesn't zoom in when you tap them.
 - To leave full screen, tap the screen and press **✕ Exit full screen**.
+- **▲ Hide menu** hides the menus without going full screen. Bring them back with **▼ Menu** (top right). They also come back by themselves if an error or warning appears.
+
+## History (all devices)
+
+- Swipe the history up to read earlier translations. While you read, it stops moving, grows to the free space, and a yellow **⬇ Live** button appears. Tap it, or swipe back to the bottom, to return to the live text.
+- The big line shows at most 3 lines. If a sentence is longer, its beginning moves up to the history, so nothing is cut off.
 
 ## iPhone
 
